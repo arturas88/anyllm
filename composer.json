@@ -1,0 +1,94 @@
+{
+    "name": "arturas88/anyllm",
+    "description": "Production-ready PHP library for LLMs - OpenAI, Anthropic, Google, Mistral, xAI, OpenRouter, Ollama. One interface, all providers, zero vendor lock-in.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "llm",
+        "openai",
+        "anthropic",
+        "claude",
+        "gpt",
+        "gpt-4",
+        "gpt-4o",
+        "ai",
+        "chatgpt",
+        "gemini",
+        "mistral",
+        "xai",
+        "grok",
+        "openrouter",
+        "ollama",
+        "embeddings",
+        "rag",
+        "chat",
+        "streaming",
+        "agents",
+        "tools",
+        "structured-output",
+        "vector",
+        "semantic-search"
+    ],
+    "homepage": "https://github.com/arturas88/anyllm",
+    "support": {
+        "issues": "https://github.com/arturas88/anyllm/issues",
+        "source": "https://github.com/arturas88/anyllm",
+        "docs": "https://github.com/arturas88/anyllm#readme"
+    },
+    "authors": [
+        {
+            "name": "Arturas",
+            "homepage": "https://github.com/arturas88"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "psr/http-client": "^1.0",
+        "psr/http-factory": "^1.0",
+        "psr/http-message": "^1.0|^2.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0",
+        "phpstan/phpstan": "^1.10",
+        "friendsofphp/php-cs-fixer": "^3.0",
+        "pestphp/pest": "^2.0",
+        "guzzlehttp/guzzle": "^7.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "AnyLLM\\": "src/"
+        },
+        "files": [
+            "src/Support/helpers.php"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "AnyLLM\\Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "suggest": {
+        "guzzlehttp/guzzle": "Required for HTTP client functionality",
+        "ext-json": "Required for JSON encoding/decoding",
+        "ext-pdo": "Required for database persistence, logging, and rate limiting",
+        "ext-redis": "Required for Redis caching and rate limiting",
+        "ext-memcached": "Required for Memcached caching"
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test-coverage": "phpunit --coverage-html coverage",
+        "cs-fix": "php-cs-fixer fix",
+        "phpstan": "phpstan analyse"
+    }
+}
+
+
