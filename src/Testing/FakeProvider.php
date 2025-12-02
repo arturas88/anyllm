@@ -11,7 +11,7 @@ use AnyLLM\Responses\StructuredResponse;
 use AnyLLM\Responses\TextResponse;
 use AnyLLM\StructuredOutput\Schema;
 use GuzzleHttp\Promise\PromiseInterface;
-use GuzzleHttp\Promise\Promise;
+use GuzzleHttp\Promise\FulfilledPromise;
 
 final class FakeProvider implements ProviderInterface
 {
@@ -141,7 +141,7 @@ final class FakeProvider implements ProviderInterface
 
         $response = $this->nextResponse() ?? TextResponse::fake(['text' => 'Fake async response']);
 
-        return Promise::promiseFor($response);
+        return new FulfilledPromise($response);
     }
 
     public function chatAsync(
@@ -168,14 +168,14 @@ final class FakeProvider implements ProviderInterface
                 'model' => $response->model,
                 'usage' => $response->usage?->toArray(),
             ]);
-            return Promise::promiseFor($chatResponse);
+            return new FulfilledPromise($chatResponse);
         }
 
         if ($response instanceof ChatResponse) {
-            return Promise::promiseFor($response);
+            return new FulfilledPromise($response);
         }
 
-        return Promise::promiseFor(ChatResponse::fake(['content' => 'Fake async chat response']));
+        return new FulfilledPromise(ChatResponse::fake(['content' => 'Fake async chat response']));
     }
 
     public function streamChat(
