@@ -121,7 +121,7 @@ use AnyLLM\AnyLLM;
 use AnyLLM\Enums\Provider;
 
 // Create provider
-$llm = AnyLLM::provider(Provider::OPENAI)
+$llm = AnyLLM::provider(Provider::OpenAI)
     ->apiKey($_ENV['OPENAI_API_KEY'])
     ->model('gpt-4o')
     ->build();
@@ -723,16 +723,17 @@ $manager->chat($conversation, $llm); // Auto-saves, auto-summarizes
 ```php
 use AnyLLM\Testing\FakeProvider;
 
-$fake = FakeProvider::create()
-    ->fakeTextResponse('Hello!')
-    ->fakeChatResponse('Goodbye!');
+$fake = (new FakeProvider())
+    ->willReturn('Hello!');
 
-$llm = AnyLLM::provider(Provider::FAKE)
-    ->withHttpClient($fake)
-    ->build();
+$response = $fake->generateText(
+    model: 'fake-model',
+    prompt: 'Say hello',
+);
 
 // Make assertions
-$fake->assertTextGenerationCalled(times: 1);
+$fake->assertCalled('generateText');
+$fake->assertCalledTimes('generateText', 1);
 ```
 
 ## 🔧 Common Issues & Troubleshooting
