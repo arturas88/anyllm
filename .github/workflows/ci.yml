@@ -39,7 +39,12 @@ jobs:
           composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-progress
 
       - name: Execute tests
-        run: vendor/bin/phpunit --coverage-text --coverage-clover=coverage.xml
+        run: |
+          if [ "${{ matrix.php }}" == "8.2" ] && [ "${{ matrix.stability }}" == "prefer-stable" ]; then
+            vendor/bin/phpunit --coverage-text --coverage-clover=coverage.xml
+          else
+            vendor/bin/phpunit
+          fi
 
       - name: Upload coverage to Codecov
         if: matrix.php == '8.2' && matrix.stability == 'prefer-stable'
