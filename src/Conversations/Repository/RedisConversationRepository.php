@@ -61,8 +61,8 @@ final class RedisConversationRepository implements ConversationRepositoryInterfa
     {
         // Get all conversations and filter by metadata
         $ids = $this->redis->zRevRange(self::ALL_KEY, 0, -1);
-        
-        return array_filter(array_map(function($id) use ($key, $value) {
+
+        return array_filter(array_map(function ($id) use ($key, $value) {
             $conversation = $this->find($id);
             if ($conversation && isset($conversation->metadata[$key]) && $conversation->metadata[$key] === $value) {
                 return $conversation;
@@ -128,13 +128,13 @@ final class RedisConversationRepository implements ConversationRepositoryInterfa
 
     public function search(string $query, ?string $userId = null): array
     {
-        $ids = $userId 
+        $ids = $userId
             ? $this->redis->zRevRange($this->getUserKey($userId), 0, -1)
             : $this->redis->zRevRange(self::ALL_KEY, 0, -1);
 
         $query = strtolower($query);
 
-        return array_values(array_filter(array_map(function($id) use ($query) {
+        return array_values(array_filter(array_map(function ($id) use ($query) {
             $conversation = $this->find($id);
             if (! $conversation) {
                 return null;
@@ -165,9 +165,9 @@ final class RedisConversationRepository implements ConversationRepositoryInterfa
 
         $conversation->metadata = $metadata;
         $conversation->updatedAt = new \DateTimeImmutable();
-        
+
         $this->save($conversation);
-        
+
         return true;
     }
 
@@ -176,7 +176,7 @@ final class RedisConversationRepository implements ConversationRepositoryInterfa
         $key = $userId ? $this->getUserKey($userId) : self::ALL_KEY;
         $ids = $this->redis->zRevRange($key, 0, -1);
 
-        return array_values(array_filter(array_map(function($id) use ($start, $end) {
+        return array_values(array_filter(array_map(function ($id) use ($start, $end) {
             $conversation = $this->find($id);
             if (! $conversation) {
                 return null;
@@ -207,20 +207,29 @@ final class RedisConversationRepository implements ConversationRepositoryInterfa
             'userId' => $conversation->userId,
             'title' => $conversation->title,
             'summary' => $conversation->summary,
-            'totalTokens' => $conversation->totalTokens,
-            'totalCost' => $conversation->totalCost,
+            'totalTokens' => $conversation->getTotalTokensUsed(),
+            'totalCost' => $conversation->getTotalCost(),
             'metadata' => $conversation->metadata,
             'createdAt' => $conversation->createdAt->format('Y-m-d H:i:s'),
             'updatedAt' => $conversation->updatedAt->format('Y-m-d H:i:s'),
             'messages' => array_map(fn($msg) => [
                 'id' => $msg->id,
+                'conversation_id' => $msg->conversationId,
+                'organization_id' => $msg->organizationId,
+                'user_id' => $msg->userId,
                 'role' => $msg->role,
                 'content' => $msg->content,
-                'tokens' => $msg->tokens,
-                'cost' => $msg->cost,
                 'metadata' => $msg->metadata,
-                'createdAt' => $msg->createdAt->format('Y-m-d H:i:s'),
-            ], $conversation->messages),
+                'prompt_tokens' => $msg->promptTokens,
+                'completion_tokens' => $msg->completionTokens,
+                'total_tokens' => $msg->totalTokens,
+                'cost' => $msg->cost,
+                'model' => $msg->model,
+                'provider' => $msg->provider,
+                'finish_reason' => $msg->finishReason,
+                'createdAt' => $msg->createdAt?->format('Y-m-d H:i:s'),
+                'updatedAt' => $msg->updatedAt?->format('Y-m-d H:i:s'),
+            ], $conversation->getMessages()),
         ];
 
         return json_encode($data);
@@ -230,33 +239,41 @@ final class RedisConversationRepository implements ConversationRepositoryInterfa
     {
         $array = json_decode($data, true);
 
-        $conversation = new Conversation(
-            userId: $array['userId'],
-            title: $array['title'],
+        $conversation = Conversation::create(
             id: $array['id'],
+            userId: $array['userId'],
+            config: ['title' => $array['title'] ?? null],
         );
 
         $conversation->summary = $array['summary'];
-        $conversation->totalTokens = $array['totalTokens'];
-        $conversation->totalCost = $array['totalCost'];
+        $conversation->setTotalTokensUsed($array['totalTokens'] ?? 0);
+        $conversation->setTotalCost($array['totalCost'] ?? 0.0);
         $conversation->metadata = $array['metadata'];
         $conversation->createdAt = new \DateTimeImmutable($array['createdAt']);
         $conversation->updatedAt = new \DateTimeImmutable($array['updatedAt']);
 
-        $conversation->messages = array_map(
+        $conversation->restoreMessages(array_map(
             fn($msg) => new ConversationMessage(
                 role: $msg['role'],
                 content: $msg['content'],
-                tokens: $msg['tokens'],
-                cost: $msg['cost'],
-                metadata: $msg['metadata'],
-                id: $msg['id'],
-                createdAt: new \DateTimeImmutable($msg['createdAt']),
+                id: $msg['id'] ?? null,
+                conversationId: $msg['conversation_id'] ?? null,
+                organizationId: $msg['organization_id'] ?? null,
+                userId: $msg['user_id'] ?? null,
+                metadata: $msg['metadata'] ?? [],
+                promptTokens: $msg['prompt_tokens'] ?? 0,
+                completionTokens: $msg['completion_tokens'] ?? 0,
+                totalTokens: $msg['total_tokens'] ?? ($msg['tokens'] ?? 0),
+                cost: $msg['cost'] ?? null,
+                model: $msg['model'] ?? null,
+                provider: $msg['provider'] ?? null,
+                finishReason: $msg['finish_reason'] ?? null,
+                createdAt: isset($msg['createdAt']) ? new \DateTimeImmutable($msg['createdAt']) : null,
+                updatedAt: isset($msg['updatedAt']) ? new \DateTimeImmutable($msg['updatedAt']) : null,
             ),
             $array['messages'] ?? []
-        );
+        ));
 
         return $conversation;
     }
 }
-

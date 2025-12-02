@@ -1,6 +1,6 @@
 <?php
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../bootstrap.php';
 
 use AnyLLM\Streaming\SSEFormatter;
 use AnyLLM\Streaming\StreamBuffer;
@@ -17,20 +17,20 @@ echo "=== 1. Stream Controller with Callbacks ===\n\n";
 $controller = new StreamController();
 
 $controller
-    ->onChunk(function($content, $chunkNum, $tokens) {
+    ->onChunk(function ($content, $chunkNum, $tokens) {
         echo "Chunk #{$chunkNum}: {$content}";
         if ($tokens > 0) {
             echo " ({$tokens} tokens)";
         }
         echo "\n";
     })
-    ->onProgress(function($progress) {
+    ->onProgress(function ($progress) {
         // You could send this to a progress bar
     })
-    ->onComplete(function($fullContent, $totalTokens, $chunks) {
+    ->onComplete(function ($fullContent, $totalTokens, $chunks) {
         echo "\nComplete! Total: {$totalTokens} tokens in {$chunks} chunks\n";
     })
-    ->onError(function($error) {
+    ->onError(function ($error) {
         echo "\nError: {$error->getMessage()}\n";
     });
 
@@ -52,7 +52,7 @@ echo "=== 2. Pause and Resume ===\n\n";
 
 $controller = new StreamController();
 
-$controller->onChunk(function($content) {
+$controller->onChunk(function ($content) {
     echo $content;
 });
 
@@ -62,14 +62,14 @@ foreach ($chunks as $i => $chunk) {
     if ($i === 10) {
         echo "\n[PAUSING...]\n";
         $controller->pause();
-        
+
         // Simulate some work
         sleep(1);
-        
+
         echo "[RESUMING...]\n";
         $controller->resume();
     }
-    
+
     $controller->processChunk($chunk);
     usleep(50000);
 }
@@ -84,10 +84,10 @@ echo "=== 3. Stream Cancellation ===\n\n";
 $controller = new StreamController();
 
 $controller
-    ->onChunk(function($content) {
+    ->onChunk(function ($content) {
         echo $content;
     })
-    ->onComplete(function() {
+    ->onComplete(function () {
         echo "\nStream completed!\n";
     });
 
@@ -97,9 +97,9 @@ foreach ($chunks as $i => $chunk) {
         echo "\n[CANCELLING...]\n";
         $controller->cancel();
     }
-    
+
     $controller->processChunk($chunk);
-    
+
     if ($controller->isCancelled()) {
         echo "Stream cancelled after {$controller->getProgress()['chunks_processed']} chunks\n";
         break;
@@ -119,7 +119,7 @@ echo "Adding chunks to buffer:\n";
 for ($i = 1; $i <= 10; $i++) {
     $buffer->add("Chunk {$i}", rand(5, 15));
     echo "  Added chunk {$i} (buffer size: {$buffer->size()})\n";
-    
+
     if ($buffer->size() >= 5) {
         $flushed = $buffer->flush();
         echo "  → Flushed " . count($flushed) . " chunks\n";
@@ -171,7 +171,7 @@ echo "=== 6. Token Counting Stream ===\n\n";
 $controller = new StreamController();
 $tokenCounter = new TokenCountingStream($controller, 'gpt-4');
 
-$controller->onChunk(function($content) {
+$controller->onChunk(function ($content) {
     echo $content;
 });
 
@@ -197,10 +197,10 @@ echo "=== 7. Progress Tracking ===\n\n";
 $controller = new StreamController();
 
 $controller
-    ->onChunk(function($content) {
+    ->onChunk(function ($content) {
         echo $content;
     })
-    ->onProgress(function($progress) {
+    ->onProgress(function ($progress) {
         // Clear line and show progress
         echo "\r\033[K";
         echo sprintf(
@@ -229,9 +229,9 @@ echo "=== 8. Buffered Streaming ===\n\n";
 $controller = new StreamController();
 $buffer = new StreamBuffer(flushThreshold: 10);
 
-$controller->onChunk(function($content) use ($buffer) {
+$controller->onChunk(function ($content) use ($buffer) {
     $buffer->add($content);
-    
+
     if ($buffer->size() >= 10) {
         $flushed = $buffer->flush();
         echo "[Flushing " . count($flushed) . " chunks] ";
@@ -241,7 +241,7 @@ $controller->onChunk(function($content) use ($buffer) {
     }
 });
 
-$controller->onComplete(function() use ($buffer) {
+$controller->onComplete(function () use ($buffer) {
     // Flush remaining
     if (! $buffer->isEmpty()) {
         $remaining = $buffer->flush();
@@ -269,10 +269,10 @@ echo "=== 9. Error Handling in Streams ===\n\n";
 $controller = new StreamController();
 
 $controller
-    ->onChunk(function($content) {
+    ->onChunk(function ($content) {
         echo $content;
     })
-    ->onError(function($error, $partialContent, $chunks) {
+    ->onError(function ($error, $partialContent, $chunks) {
         echo "\n\nError occurred after {$chunks} chunks!\n";
         echo "Error: {$error->getMessage()}\n";
         echo "Partial content: " . substr($partialContent, 0, 50) . "...\n";
@@ -283,10 +283,10 @@ try {
     foreach ($chunks as $chunk) {
         $controller->processChunk($chunk);
     }
-    
+
     // Simulate an error
     throw new \Exception("Simulated streaming error");
-    
+
 } catch (\Exception $e) {
     $controller->error($e);
 }
@@ -303,63 +303,63 @@ function simulateStreamingResponse(): void
     $controller = new StreamController();
     $buffer = new StreamBuffer(flushThreshold: 5);
     $tokenCounter = new TokenCountingStream($controller);
-    
+
     // Set up callbacks
     $controller
-        ->onChunk(function($content, $chunkNum) use ($buffer) {
+        ->onChunk(function ($content, $chunkNum) use ($buffer) {
             // Add to buffer
             $buffer->add($content);
-            
+
             // Flush when threshold reached
             if ($buffer->size() >= 5) {
                 $chunks = $buffer->flush();
                 foreach ($chunks as $chunk) {
                     echo $chunk['content'];
-                    
+
                     // Could send via SSE to web client:
                     // echo SSEFormatter::formatChunk($chunk['content']);
                     // SSEFormatter::flush();
                 }
             }
         })
-        ->onProgress(function($progress) {
+        ->onProgress(function ($progress) {
             // Update progress (e.g., via WebSocket or SSE)
             // In CLI, we'll just track it
         })
-        ->onComplete(function($fullContent, $totalTokens) use ($buffer, $tokenCounter) {
+        ->onComplete(function ($fullContent, $totalTokens) use ($buffer, $tokenCounter, $controller) {
             // Flush remaining
             if (! $buffer->isEmpty()) {
                 foreach ($buffer->flush() as $chunk) {
                     echo $chunk['content'];
                 }
             }
-            
+
             echo "\n\n";
             echo "Stream complete:\n";
             echo "- Content length: " . strlen($fullContent) . " chars\n";
             echo "- Estimated tokens: " . $tokenCounter->getEstimatedTokens() . "\n";
             echo "- Duration: " . round($controller->getElapsedTime(), 2) . "s\n";
         })
-        ->onError(function($error) {
+        ->onError(function ($error) {
             echo "\nStreaming error: {$error->getMessage()}\n";
         });
-    
+
     // Simulate streaming from LLM
     $response = "This is a simulated LLM response that demonstrates real-world streaming. ";
     $response .= "It includes multiple sentences and shows how buffering and token counting work together. ";
     $response .= "In a real application, these chunks would come from the LLM provider's streaming API.";
-    
+
     $words = explode(' ', $response);
     foreach ($words as $word) {
         $controller->processChunk($word . ' ', rand(1, 3));
         usleep(50000); // Simulate network delay
-        
+
         // Could check for pause/cancel here
         if ($controller->isCancelled()) {
             break;
         }
     }
-    
+
     $controller->complete();
 }
 
@@ -380,4 +380,3 @@ echo "- Buffered processing for efficiency\n";
 echo "- Server-Sent Events for web apps\n";
 echo "- User-controlled streaming (pause/cancel)\n";
 echo "- Token/cost tracking during streaming\n";
-

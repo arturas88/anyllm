@@ -38,9 +38,9 @@ final class RedisRateLimiter implements RateLimiterInterface
     public function hit(string $key, int $decaySeconds = 60): int
     {
         $redisKey = $this->getKey($key);
-        
+
         $attempts = $this->redis->incr($redisKey);
-        
+
         if ($attempts === 1) {
             $this->redis->expire($redisKey, $decaySeconds);
         }
@@ -58,7 +58,7 @@ final class RedisRateLimiter implements RateLimiterInterface
     {
         $redisKey = $this->getKey($key);
         $ttl = $this->redis->ttl($redisKey);
-        
+
         return max(0, $ttl);
     }
 
@@ -71,7 +71,7 @@ final class RedisRateLimiter implements RateLimiterInterface
     {
         $pattern = self::KEY_PREFIX . '*';
         $keys = $this->redis->keys($pattern);
-        
+
         if (! empty($keys)) {
             $this->redis->del(...$keys);
         }
@@ -88,4 +88,3 @@ final class RedisRateLimiter implements RateLimiterInterface
         return self::KEY_PREFIX . $key;
     }
 }
-

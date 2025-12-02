@@ -14,37 +14,40 @@ use AnyLLM\Messages\UserMessage;
 final class ConversationMessage
 {
     public function __construct(
-        public readonly ?int $id,
+        // Required parameters first
+        public readonly string $role,
+        public readonly string $content,
+
+        // Optional parameters after required ones
+        public readonly ?int $id = null,
         public readonly ?int $conversationId = null,
-        
+
         // Multi-tenancy (denormalized for fast queries)
         public readonly ?string $organizationId = null,
         public readonly ?string $userId = null,
-        
-        // Message info
-        public readonly string $role,
-        public readonly string $content,
+
+        // Message metadata
         public readonly array $metadata = [],
-        
+
         // Token tracking per message
         public readonly int $promptTokens = 0,
         public readonly int $completionTokens = 0,
         public readonly int $totalTokens = 0,
         public readonly ?float $cost = null,
-        
+
         // Model info
         public readonly ?string $model = null,
         public readonly ?string $provider = null,
         public readonly ?string $finishReason = null,
-        
+
         // Tool calls
         public readonly ?array $toolCalls = null,
         public readonly ?string $toolCallId = null,
-        
+
         // Summary tracking
         public bool $includedInSummary = false,
         public ?string $summarizedAt = null,
-        
+
         // Timestamps
         public readonly ?\DateTimeImmutable $createdAt = null,
         public readonly ?\DateTimeImmutable $updatedAt = null,
@@ -63,12 +66,13 @@ final class ConversationMessage
         $content = is_string($message->content) ? $message->content : json_encode($message->content);
 
         return new self(
+            role: $message->role->value,
+            content: $content,
             id: null,
             conversationId: $conversationId,
             organizationId: $organizationId,
             userId: $userId,
-            role: $message->role->value,
-            content: $content,
+            metadata: [],
             promptTokens: $promptTokens,
             completionTokens: $completionTokens,
             totalTokens: $promptTokens + $completionTokens,
@@ -90,9 +94,9 @@ final class ConversationMessage
                 content: $this->content,
                 toolCalls: $this->toolCalls ?? [],
             ),
-            Role::Tool => ToolMessage::create(
-                toolCallId: $this->toolCallId ?? '',
+            Role::Tool => new ToolMessage(
                 content: $this->content,
+                toolCallId: $this->toolCallId ?? '',
             ),
         };
     }
@@ -123,4 +127,3 @@ final class ConversationMessage
         ];
     }
 }
-

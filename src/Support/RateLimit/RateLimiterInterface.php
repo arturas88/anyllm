@@ -43,4 +43,3 @@ interface RateLimiterInterface
      */
     public function resetAll(): void;
 }
-

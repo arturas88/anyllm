@@ -15,4 +15,3 @@ final readonly class WorkflowResult
         public WorkflowContext $context,
     ) {}
 }
-

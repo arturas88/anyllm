@@ -11,4 +11,3 @@ enum TaskStatus: string
     case Completed = 'completed';
     case Failed = 'failed';
 }
-

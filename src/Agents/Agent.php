@@ -115,9 +115,9 @@ final class Agent
                     duration: $duration,
                 );
 
-                $messages[] = ToolMessage::create(
-                    toolCallId: $toolCall->id,
+                $messages[] = new ToolMessage(
                     content: is_string($result) ? $result : json_encode($result),
+                    toolCallId: $toolCall->id,
                 );
             }
 
@@ -140,4 +140,3 @@ final class Agent
         return null;
     }
 }
-

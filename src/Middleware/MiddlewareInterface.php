@@ -18,4 +18,3 @@ interface MiddlewareInterface
      */
     public function handle(RequestContext $context, callable $next): ResponseContext;
 }
-

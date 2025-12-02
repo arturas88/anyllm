@@ -43,4 +43,3 @@ final class NullLogDriver implements LogDriverInterface
         return 0;
     }
 }
-

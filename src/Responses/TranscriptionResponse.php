@@ -43,4 +43,3 @@ final class TranscriptionResponse extends Response
         ];
     }
 }
-

@@ -14,4 +14,3 @@ final readonly class StepResult
         public ?Usage $usage = null,
     ) {}
 }
-

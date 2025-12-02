@@ -23,7 +23,7 @@ final class DatabaseCache implements CacheInterface
              WHERE cache_key = :key AND expires_at > NOW()"
         );
         $stmt->execute(['key' => $key]);
-        
+
         $result = $stmt->fetch(\PDO::FETCH_ASSOC);
 
         if (! $result) {
@@ -35,7 +35,7 @@ final class DatabaseCache implements CacheInterface
 
     public function set(string $key, mixed $value, ?int $ttl = null): bool
     {
-        $ttl = $ttl ?? $this->defaultTtl;
+        $ttl ??= $this->defaultTtl;
         $expiresAt = date('Y-m-d H:i:s', time() + $ttl);
         $serialized = serialize($value);
 
@@ -201,4 +201,3 @@ final class DatabaseCache implements CacheInterface
         ");
     }
 }
-

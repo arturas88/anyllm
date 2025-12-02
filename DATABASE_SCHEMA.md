@@ -4,6 +4,18 @@ Complete database schema for **AnyLLM** - optimized for SaaS and multi-tenant ap
 
 ---
 
+## 🎯 Supported Databases
+
+AnyLLM supports multiple database drivers:
+
+- **SQLite** - Perfect for local development (zero setup, file-based)
+- **MySQL** - Production-ready, high performance
+- **PostgreSQL** - Advanced features, excellent JSON support
+
+**Note**: All schemas are compatible across all supported databases. SQLite is recommended for local development as it requires no server setup.
+
+---
+
 ## 🎯 Design Principles
 
 1. **Multi-Tenancy Ready** - Organization/Team/User hierarchy
@@ -595,6 +607,16 @@ Run migrations in this order:
 3. `create_llm_usage_table.php`
 4. `create_llm_task_table.php`
 5. `create_llm_api_key_table.php`
+
+### SQLite Notes
+
+For SQLite, you may need to adjust some SQL syntax:
+- `BIGINT UNSIGNED` → `INTEGER` (SQLite doesn't support UNSIGNED)
+- `TIMESTAMP DEFAULT CURRENT_TIMESTAMP` → `DATETIME DEFAULT CURRENT_TIMESTAMP`
+- `AUTO_INCREMENT` → `AUTOINCREMENT`
+- Some MySQL-specific functions may need adjustment
+
+The schema is designed to work with all three databases, but minor adjustments may be needed for SQLite-specific syntax.
 
 ---
 

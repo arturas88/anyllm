@@ -26,13 +26,13 @@ final class TokenCounter
     public static function estimate(string $text, string $model = 'default'): int
     {
         $charsPerToken = self::getCharsPerToken($model);
-        
+
         // Remove extra whitespace
         $text = preg_replace('/\s+/', ' ', $text);
-        
+
         // Count characters
         $chars = mb_strlen($text);
-        
+
         // Estimate tokens
         return (int) ceil($chars / $charsPerToken);
     }
@@ -45,11 +45,11 @@ final class TokenCounter
     public static function estimateMessages(array $messages, string $model = 'default'): int
     {
         $total = 0;
-        
+
         foreach ($messages as $message) {
             // Add overhead for message structure (role, etc.)
             $total += 4;
-            
+
             // Count content
             $content = $message->getContent();
             if (is_string($content)) {
@@ -70,7 +70,7 @@ final class TokenCounter
                 }
             }
         }
-        
+
         return $total;
     }
 
@@ -98,14 +98,14 @@ final class TokenCounter
         string $suffix = '...',
     ): string {
         $estimated = self::estimate($text, $model);
-        
+
         if ($estimated <= $maxTokens) {
             return $text;
         }
-        
+
         $charsPerToken = self::getCharsPerToken($model);
         $targetChars = ($maxTokens - self::estimate($suffix, $model)) * $charsPerToken;
-        
+
         return mb_substr($text, 0, $targetChars) . $suffix;
     }
 
@@ -119,7 +119,7 @@ final class TokenCounter
                 return $ratio;
             }
         }
-        
+
         return self::CHARS_PER_TOKEN['default'];
     }
 
@@ -131,23 +131,22 @@ final class TokenCounter
         if ($limit === 0) {
             return 0.0;
         }
-        
+
         return round(($used / $limit) * 100, 2);
     }
 
     /**
      * Format token count for display.
      */
-    public static function format(int $tokens, int $limit = null): string
+    public static function format(int $tokens, ?int $limit = null): string
     {
         $formatted = number_format($tokens);
-        
+
         if ($limit !== null) {
             $percentage = self::percentage($tokens, $limit);
             return "{$formatted} / " . number_format($limit) . " ({$percentage}%)";
         }
-        
+
         return $formatted;
     }
 }
-

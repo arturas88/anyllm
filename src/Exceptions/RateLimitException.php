@@ -15,4 +15,3 @@ class RateLimitException extends ProviderException
         parent::__construct($message, $code, $previous);
     }
 }
-

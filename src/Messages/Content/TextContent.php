@@ -31,4 +31,3 @@ final readonly class TextContent implements Content
         ];
     }
 }
-

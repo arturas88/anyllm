@@ -39,6 +39,15 @@ abstract class Message implements \JsonSerializable
 
     abstract protected static function getRole(): Role;
 
+    /**
+     * Get the message content.
+     * @return array<Content|string>|string
+     */
+    public function getContent(): array|string
+    {
+        return $this->content;
+    }
+
     public function toProviderFormat(string $provider): array
     {
         return match ($provider) {
@@ -57,7 +66,7 @@ abstract class Message implements \JsonSerializable
             $formatted['content'] = $this->content;
         } else {
             $formatted['content'] = array_map(
-                fn ($part) => $part instanceof Content
+                fn($part) => $part instanceof Content
                     ? $part->toOpenAIFormat()
                     : ['type' => 'text', 'text' => $part],
                 $this->content
@@ -79,7 +88,7 @@ abstract class Message implements \JsonSerializable
             $formatted['content'] = $this->content;
         } else {
             $formatted['content'] = array_map(
-                fn ($part) => $part instanceof Content
+                fn($part) => $part instanceof Content
                     ? $part->toAnthropicFormat()
                     : ['type' => 'text', 'text' => $part],
                 $this->content
@@ -113,4 +122,3 @@ abstract class Message implements \JsonSerializable
         ];
     }
 }
-

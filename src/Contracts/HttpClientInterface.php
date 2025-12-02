@@ -12,4 +12,3 @@ interface HttpClientInterface
 
     public function stream(string $endpoint, array $data): \Generator;
 }
-

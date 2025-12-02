@@ -30,4 +30,3 @@ interface LogDriverInterface
      */
     public function prune(int $days = 30): int;
 }
-

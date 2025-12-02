@@ -39,7 +39,15 @@ final class Schema
             $propSchema = self::propertyToSchema($property);
             $properties[$property->getName()] = $propSchema;
 
-            if (! $property->getType()?->allowsNull() && ! $property->hasDefaultValue()) {
+            $type = $property->getType();
+            $isNullable = $type?->allowsNull() ?? false;
+            $hasDefault = $property->hasDefaultValue();
+            $defaultValue = $hasDefault ? $property->getDefaultValue() : null;
+
+            // OpenAI's strict mode requires all properties to be in 'required' array
+            // Nullable properties must be included (they can be null, but must be present)
+            // Only exclude properties with non-null default values (truly optional)
+            if ($isNullable || ! $hasDefault || $defaultValue === null) {
                 $required[] = $property->getName();
             }
         }
@@ -85,6 +93,7 @@ final class Schema
     private static function propertyToSchema(ReflectionProperty $property): array
     {
         $type = $property->getType();
+        $allowsNull = $type?->allowsNull() ?? false;
         $schema = [];
 
         // Check for Description attribute
@@ -112,29 +121,69 @@ final class Schema
         }
 
         // Map PHP type to JSON Schema type
-        $schema = array_merge($schema, self::typeToSchema($type));
+        $typeSchema = self::typeToSchema($type, $allowsNull);
+
+        // OpenAI requires array types to have 'items' definition
+        // If it's an array type without ArrayOf attribute, default to string array
+        if (isset($typeSchema['type']) && $typeSchema['type'] === 'array') {
+            // Try to parse PHPDoc for array type hint (e.g., @var array<string>)
+            $docComment = $property->getDocComment();
+            $itemType = 'string'; // default to string
+
+            if ($docComment && preg_match('/@var\s+array<(\w+)>/', $docComment, $matches)) {
+                $itemType = match ($matches[1]) {
+                    'int', 'integer' => 'integer',
+                    'float', 'double', 'number' => 'number',
+                    'bool', 'boolean' => 'boolean',
+                    'string' => 'string',
+                    default => 'string',
+                };
+            }
+
+            $typeSchema = [
+                'type' => 'array',
+                'items' => ['type' => $itemType],
+            ];
+        }
+
+        $schema = array_merge($schema, $typeSchema);
 
         return $schema;
     }
 
-    private static function typeToSchema(?\ReflectionType $type): array
+    private static function typeToSchema(?\ReflectionType $type, bool $allowsNull = false): array
     {
         if ($type === null) {
-            return ['type' => 'string'];
+            return $allowsNull ? ['type' => ['string', 'null']] : ['type' => 'string'];
         }
 
         if ($type instanceof ReflectionNamedType) {
-            return match ($type->getName()) {
-                'int', 'integer' => ['type' => 'integer'],
-                'float', 'double' => ['type' => 'number'],
-                'bool', 'boolean' => ['type' => 'boolean'],
-                'string' => ['type' => 'string'],
-                'array' => ['type' => 'array'],
-                default => self::objectTypeToSchema($type->getName()),
+            $baseType = match ($type->getName()) {
+                'int', 'integer' => 'integer',
+                'float', 'double' => 'number',
+                'bool', 'boolean' => 'boolean',
+                'string' => 'string',
+                'array' => 'array',
+                default => null,
             };
+
+            if ($baseType !== null) {
+                $typeSchema = ['type' => $baseType];
+            } else {
+                $typeSchema = self::objectTypeToSchema($type->getName());
+            }
+
+            // Handle nullable types - OpenAI requires explicit null in type array
+            if ($allowsNull || $type->allowsNull()) {
+                if (isset($typeSchema['type']) && is_string($typeSchema['type'])) {
+                    $typeSchema['type'] = [$typeSchema['type'], 'null'];
+                }
+            }
+
+            return $typeSchema;
         }
 
-        return ['type' => 'string'];
+        return $allowsNull ? ['type' => ['string', 'null']] : ['type' => 'string'];
     }
 
     private static function objectTypeToSchema(string $className): array
@@ -159,10 +208,23 @@ final class Schema
 
         foreach ($reflection->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
             $name = $property->getName();
+            $value = null;
+            $found = false;
 
+            // Try exact match first
             if (array_key_exists($name, $data)) {
                 $value = $data[$name];
+                $found = true;
+            } else {
+                // Try snake_case version (camelCase -> snake_case)
+                $snakeName = self::camelToSnake($name);
+                if (array_key_exists($snakeName, $data)) {
+                    $value = $data[$snakeName];
+                    $found = true;
+                }
+            }
 
+            if ($found && $value !== null) {
                 // Handle nested objects
                 $type = $property->getType();
                 if ($type instanceof ReflectionNamedType && ! $type->isBuiltin() && is_array($value)) {
@@ -174,16 +236,23 @@ final class Schema
                 if ($arrayOfAttr && is_array($value)) {
                     $itemClass = $arrayOfAttr->newInstance()->class;
                     $value = array_map(
-                        fn ($item) => is_array($item) ? self::hydrate($itemClass, $item) : $item,
+                        fn($item) => is_array($item) ? self::hydrate($itemClass, $item) : $item,
                         $value
                     );
                 }
 
                 $property->setValue($instance, $value);
+            } elseif ($property->hasDefaultValue()) {
+                // Set default value if property has one and wasn't found in data
+                $property->setValue($instance, $property->getDefaultValue());
             }
         }
 
         return $instance;
     }
-}
 
+    private static function camelToSnake(string $str): string
+    {
+        return strtolower(preg_replace('/([a-z])([A-Z])/', '$1_$2', $str));
+    }
+}

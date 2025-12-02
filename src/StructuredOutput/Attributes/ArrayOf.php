@@ -16,4 +16,3 @@ final readonly class ArrayOf
         public string $class,
     ) {}
 }
-

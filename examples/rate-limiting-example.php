@@ -1,6 +1,6 @@
 <?php
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../bootstrap.php';
 
 use AnyLLM\Support\RateLimit\MemoryRateLimiter;
 use AnyLLM\Support\RateLimit\RateLimiterFactory;
@@ -24,16 +24,16 @@ for ($i = 1; $i <= 7; $i++) {
     try {
         $result = $limiter->attempt(
             key: $key,
-            callback: function() use ($i) {
+            callback: function () use ($i) {
                 return "Request #{$i} successful!";
             },
             maxAttempts: $maxAttempts,
             decaySeconds: $decaySeconds
         );
-        
+
         $remaining = $limiter->remaining($key, $maxAttempts);
         echo "✓ {$result} (Remaining: {$remaining})\n";
-        
+
     } catch (RateLimitException $e) {
         $availableIn = $limiter->availableIn($key);
         echo "✗ Rate limit exceeded! Try again in {$availableIn} seconds\n";
@@ -59,7 +59,7 @@ if ($limiter->tooManyAttempts($apiKey, 10)) {
     // Make request
     echo "✓ Making API request...\n";
     $limiter->hit($apiKey, 60); // Track the attempt
-    
+
     $remaining = $limiter->remaining($apiKey, 10);
     echo "Remaining requests: {$remaining}/10\n";
 }
@@ -78,7 +78,7 @@ $perUserLimit = 3;
 
 foreach ($users as $userId) {
     echo "User: {$userId}\n";
-    
+
     for ($i = 1; $i <= 4; $i++) {
         try {
             $limiter->attempt(
@@ -87,15 +87,15 @@ foreach ($users as $userId) {
                 maxAttempts: $perUserLimit,
                 decaySeconds: 60
             );
-            
+
             $remaining = $limiter->remaining("user:{$userId}", $perUserLimit);
             echo "  Request {$i}: ✓ ({$remaining} remaining)\n";
-            
+
         } catch (RateLimitException $e) {
             echo "  Request {$i}: ✗ Rate limited\n";
         }
     }
-    
+
     echo "\n";
 }
 
@@ -110,7 +110,7 @@ $limiter = new MemoryRateLimiter();
 echo "Per-second limit (10/second):\n";
 for ($i = 1; $i <= 12; $i++) {
     $limiter->hit('api:per-second', 1); // 1 second decay
-    
+
     if ($limiter->tooManyAttempts('api:per-second', 10)) {
         echo "  Attempt {$i}: ✗ Rate limited\n";
     } else {
@@ -166,7 +166,7 @@ try {
     ]);
 
     $key = 'redis:test';
-    
+
     for ($i = 1; $i <= 5; $i++) {
         try {
             $redisLimiter->attempt(
@@ -175,10 +175,10 @@ try {
                 maxAttempts: 3,
                 decaySeconds: 60
             );
-            
+
             $remaining = $redisLimiter->remaining($key, 3);
             echo "✓ Request {$i} (Remaining: {$remaining})\n";
-            
+
         } catch (RateLimitException $e) {
             echo "✗ Rate limited: {$e->getMessage()}\n";
         }
@@ -207,7 +207,7 @@ try {
     ]);
 
     $key = 'db:test';
-    
+
     for ($i = 1; $i <= 5; $i++) {
         try {
             $dbLimiter->attempt(
@@ -216,10 +216,10 @@ try {
                 maxAttempts: 3,
                 decaySeconds: 60
             );
-            
+
             $remaining = $dbLimiter->remaining($key, 3);
             echo "✓ Request {$i} (Remaining: {$remaining})\n";
-            
+
         } catch (RateLimitException $e) {
             echo "✗ Rate limited: {$e->getMessage()}\n";
         }
@@ -241,11 +241,11 @@ echo "=== 8. Real-World API Rate Limiting ===\n\n";
 function makeAPIRequest(string $userId, string $endpoint, MemoryRateLimiter $limiter): void
 {
     $key = "api:{$userId}:{$endpoint}";
-    
+
     try {
         $result = $limiter->attempt(
             key: $key,
-            callback: function() use ($endpoint) {
+            callback: function () use ($endpoint) {
                 // Simulate API call
                 usleep(100000); // 100ms
                 return "API response from {$endpoint}";
@@ -253,10 +253,10 @@ function makeAPIRequest(string $userId, string $endpoint, MemoryRateLimiter $lim
             maxAttempts: 10, // 10 requests per minute
             decaySeconds: 60
         );
-        
+
         $remaining = $limiter->remaining($key, 10);
         echo "✓ {$result} (Rate limit: {$remaining}/10)\n";
-        
+
     } catch (RateLimitException $e) {
         $availableIn = $limiter->availableIn($key);
         echo "✗ Rate limit exceeded. Retry in {$availableIn}s\n";
@@ -295,9 +295,9 @@ $users = [
 foreach ($users as $userId => $tier) {
     $config = $tiers[$tier];
     echo "{$userId} (tier: {$tier}, limit: {$config['limit']}/{$config['window']}s):\n";
-    
+
     $key = "tier:{$userId}";
-    
+
     // Make 5 requests
     for ($i = 1; $i <= 5; $i++) {
         if ($limiter->tooManyAttempts($key, $config['limit'])) {
@@ -308,7 +308,7 @@ foreach ($users as $userId => $tier) {
             echo "  Request {$i}: ✓ ({$remaining} remaining)\n";
         }
     }
-    
+
     echo "\n";
 }
 
@@ -324,4 +324,3 @@ echo "- Per-user API rate limiting\n";
 echo "- Cost control for LLM calls\n";
 echo "- Prevent abuse\n";
 echo "- Multi-tier subscription limits\n";
-

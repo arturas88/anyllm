@@ -50,7 +50,7 @@ final class FileConversationRepository implements ConversationRepositoryInterfac
     public function findByUserId(string $userId): array
     {
         $ids = $this->getUserConversationIds($userId);
-        
+
         return array_values(array_filter(array_map(
             fn($id) => $this->find($id),
             $ids
@@ -87,7 +87,7 @@ final class FileConversationRepository implements ConversationRepositoryInterfac
         }
 
         $path = $this->getPath($id);
-        
+
         if (file_exists($path)) {
             unlink($path);
         }
@@ -121,7 +121,7 @@ final class FileConversationRepository implements ConversationRepositoryInterfac
     public function paginate(int $page = 1, int $perPage = 20, ?string $userId = null): array
     {
         $all = $userId ? $this->findByUserId($userId) : $this->findAll();
-        
+
         // Sort by creation date
         usort($all, fn($a, $b) => $b->createdAt <=> $a->createdAt);
 
@@ -141,14 +141,15 @@ final class FileConversationRepository implements ConversationRepositoryInterfac
         $conversations = $userId ? $this->findByUserId($userId) : $this->findAll();
         $query = strtolower($query);
 
-        return array_values(array_filter($conversations, function($conversation) use ($query) {
+        return array_values(array_filter($conversations, function ($conversation) use ($query) {
             // Search in title
-            if (str_contains(strtolower($conversation->title), $query)) {
+            $title = $conversation->title ?? '';
+            if (str_contains(strtolower($title), $query)) {
                 return true;
             }
 
             // Search in messages
-            foreach ($conversation->messages as $message) {
+            foreach ($conversation->getMessages() as $message) {
                 if (str_contains(strtolower($message->content), $query)) {
                     return true;
                 }
@@ -167,9 +168,9 @@ final class FileConversationRepository implements ConversationRepositoryInterfac
 
         $conversation->metadata = $metadata;
         $conversation->updatedAt = new \DateTimeImmutable();
-        
+
         $this->save($conversation);
-        
+
         return true;
     }
 
@@ -177,7 +178,7 @@ final class FileConversationRepository implements ConversationRepositoryInterfac
     {
         $conversations = $userId ? $this->findByUserId($userId) : $this->findAll();
 
-        return array_values(array_filter($conversations, function($conversation) use ($start, $end) {
+        return array_values(array_filter($conversations, function ($conversation) use ($start, $end) {
             return $conversation->createdAt >= $start && $conversation->createdAt <= $end;
         }));
     }
@@ -217,7 +218,7 @@ final class FileConversationRepository implements ConversationRepositoryInterfac
     private function getUserConversationIds(string $userId): array
     {
         $path = $this->getUserIndexPath($userId);
-        
+
         if (! file_exists($path)) {
             return [];
         }
@@ -233,7 +234,7 @@ final class FileConversationRepository implements ConversationRepositoryInterfac
     private function updateUserIndex(string $userId, string $conversationId): void
     {
         $ids = $this->getUserConversationIds($userId);
-        
+
         if (! in_array($conversationId, $ids, true)) {
             $ids[] = $conversationId;
         }
@@ -254,7 +255,7 @@ final class FileConversationRepository implements ConversationRepositoryInterfac
     private function ensureStorageDirectory(): void
     {
         if (! is_dir($this->storagePath)) {
-            mkdir($this->storagePath, 0755, true);
+            mkdir($this->storagePath, 0o755, true);
         }
     }
 
@@ -265,20 +266,29 @@ final class FileConversationRepository implements ConversationRepositoryInterfac
             'userId' => $conversation->userId,
             'title' => $conversation->title,
             'summary' => $conversation->summary,
-            'totalTokens' => $conversation->totalTokens,
-            'totalCost' => $conversation->totalCost,
+            'totalTokens' => $conversation->getTotalTokensUsed(),
+            'totalCost' => $conversation->getTotalCost(),
             'metadata' => $conversation->metadata,
             'createdAt' => $conversation->createdAt->format('Y-m-d H:i:s'),
             'updatedAt' => $conversation->updatedAt->format('Y-m-d H:i:s'),
             'messages' => array_map(fn($msg) => [
                 'id' => $msg->id,
+                'conversation_id' => $msg->conversationId,
+                'organization_id' => $msg->organizationId,
+                'user_id' => $msg->userId,
                 'role' => $msg->role,
                 'content' => $msg->content,
-                'tokens' => $msg->tokens,
-                'cost' => $msg->cost,
                 'metadata' => $msg->metadata,
-                'createdAt' => $msg->createdAt->format('Y-m-d H:i:s'),
-            ], $conversation->messages),
+                'prompt_tokens' => $msg->promptTokens,
+                'completion_tokens' => $msg->completionTokens,
+                'total_tokens' => $msg->totalTokens,
+                'cost' => $msg->cost,
+                'model' => $msg->model,
+                'provider' => $msg->provider,
+                'finish_reason' => $msg->finishReason,
+                'createdAt' => $msg->createdAt?->format('Y-m-d H:i:s'),
+                'updatedAt' => $msg->updatedAt?->format('Y-m-d H:i:s'),
+            ], $conversation->getMessages()),
         ];
 
         return json_encode($data, JSON_PRETTY_PRINT);
@@ -288,33 +298,41 @@ final class FileConversationRepository implements ConversationRepositoryInterfac
     {
         $array = json_decode($data, true);
 
-        $conversation = new Conversation(
-            userId: $array['userId'],
-            title: $array['title'],
+        $conversation = Conversation::create(
             id: $array['id'],
+            userId: $array['userId'],
+            config: ['title' => $array['title'] ?? null],
         );
 
         $conversation->summary = $array['summary'];
-        $conversation->totalTokens = $array['totalTokens'];
-        $conversation->totalCost = $array['totalCost'];
+        $conversation->setTotalTokensUsed($array['totalTokens'] ?? 0);
+        $conversation->setTotalCost($array['totalCost'] ?? 0.0);
         $conversation->metadata = $array['metadata'];
         $conversation->createdAt = new \DateTimeImmutable($array['createdAt']);
         $conversation->updatedAt = new \DateTimeImmutable($array['updatedAt']);
 
-        $conversation->messages = array_map(
+        $conversation->restoreMessages(array_map(
             fn($msg) => new ConversationMessage(
                 role: $msg['role'],
                 content: $msg['content'],
-                tokens: $msg['tokens'],
-                cost: $msg['cost'],
-                metadata: $msg['metadata'],
-                id: $msg['id'],
-                createdAt: new \DateTimeImmutable($msg['createdAt']),
+                id: $msg['id'] ?? null,
+                conversationId: $msg['conversation_id'] ?? null,
+                organizationId: $msg['organization_id'] ?? null,
+                userId: $msg['user_id'] ?? null,
+                metadata: $msg['metadata'] ?? [],
+                promptTokens: $msg['prompt_tokens'] ?? 0,
+                completionTokens: $msg['completion_tokens'] ?? 0,
+                totalTokens: $msg['total_tokens'] ?? ($msg['tokens'] ?? 0),
+                cost: $msg['cost'] ?? null,
+                model: $msg['model'] ?? null,
+                provider: $msg['provider'] ?? null,
+                finishReason: $msg['finish_reason'] ?? null,
+                createdAt: isset($msg['createdAt']) ? new \DateTimeImmutable($msg['createdAt']) : null,
+                updatedAt: isset($msg['updatedAt']) ? new \DateTimeImmutable($msg['updatedAt']) : null,
             ),
             $array['messages'] ?? []
-        );
+        ));
 
         return $conversation;
     }
 }
-

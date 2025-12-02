@@ -15,7 +15,7 @@ final class FileCache
     ) {
         $this->cacheDir = $cacheDir ?? sys_get_temp_dir() . '/anyllm-cache';
         $this->defaultTtl = $defaultTtl;
-        
+
         $this->ensureCacheDirectory();
     }
 
@@ -24,9 +24,9 @@ final class FileCache
      */
     public function set(string $key, mixed $value, ?int $ttl = null): bool
     {
-        $ttl = $ttl ?? $this->defaultTtl;
+        $ttl ??= $this->defaultTtl;
         $expiresAt = time() + $ttl;
-        
+
         $data = [
             'value' => $value,
             'expires_at' => $expiresAt,
@@ -34,7 +34,7 @@ final class FileCache
 
         $path = $this->getPath($key);
         $json = json_encode($data);
-        
+
         return file_put_contents($path, $json, LOCK_EX) !== false;
     }
 
@@ -106,12 +106,78 @@ final class FileCache
     }
 
     /**
+     * Get multiple items from the cache.
+     *
+     * @param string[] $keys
+     * @return array<string, mixed>
+     */
+    public function getMultiple(array $keys, mixed $default = null): array
+    {
+        $result = [];
+        foreach ($keys as $key) {
+            $result[$key] = $this->get($key, $default);
+        }
+        return $result;
+    }
+
+    /**
+     * Store multiple items in the cache.
+     *
+     * @param array<string, mixed> $values
+     */
+    public function setMultiple(array $values, ?int $ttl = null): bool
+    {
+        foreach ($values as $key => $value) {
+            $this->set($key, $value, $ttl);
+        }
+        return true;
+    }
+
+    /**
+     * Delete multiple items from the cache.
+     *
+     * @param string[] $keys
+     */
+    public function deleteMultiple(array $keys): bool
+    {
+        foreach ($keys as $key) {
+            $this->delete($key);
+        }
+        return true;
+    }
+
+    /**
+     * Increment a numeric value.
+     */
+    public function increment(string $key, int $value = 1): int|false
+    {
+        $current = $this->get($key, 0);
+
+        if (! is_numeric($current)) {
+            return false;
+        }
+
+        $newValue = (int) $current + $value;
+        $this->set($key, $newValue);
+
+        return $newValue;
+    }
+
+    /**
+     * Decrement a numeric value.
+     */
+    public function decrement(string $key, int $value = 1): int|false
+    {
+        return $this->increment($key, -$value);
+    }
+
+    /**
      * Clear all items from the cache.
      */
     public function clear(): bool
     {
         $files = glob($this->cacheDir . '/*');
-        
+
         if ($files === false) {
             return false;
         }
@@ -155,7 +221,7 @@ final class FileCache
     {
         $pruned = 0;
         $files = glob($this->cacheDir . '/*');
-        
+
         if ($files === false) {
             return 0;
         }
@@ -187,7 +253,7 @@ final class FileCache
     public function stats(): array
     {
         $files = glob($this->cacheDir . '/*');
-        
+
         if ($files === false) {
             return [
                 'total_items' => 0,
@@ -240,7 +306,7 @@ final class FileCache
     private function ensureCacheDirectory(): void
     {
         if (! is_dir($this->cacheDir)) {
-            mkdir($this->cacheDir, 0755, true);
+            mkdir($this->cacheDir, 0o755, true);
         }
     }
 
@@ -252,4 +318,3 @@ final class FileCache
         return implode(':', $parts);
     }
 }
-

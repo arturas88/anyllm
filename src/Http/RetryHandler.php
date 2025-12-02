@@ -42,7 +42,7 @@ final class RetryHandler
 
                 // Wait before retry
                 usleep($delay * 1000);
-                
+
                 // Calculate next delay with exponential backoff
                 $delay = (int) min($delay * $this->multiplier, $this->maxDelayMs);
             }
@@ -69,7 +69,7 @@ final class RetryHandler
         // Retry on network errors
         if ($e instanceof \RuntimeException) {
             $message = strtolower($e->getMessage());
-            return str_contains($message, 'timeout') 
+            return str_contains($message, 'timeout')
                 || str_contains($message, 'connection')
                 || str_contains($message, 'network');
         }
@@ -97,4 +97,3 @@ final class RetryHandler
         );
     }
 }
-

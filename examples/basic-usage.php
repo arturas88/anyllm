@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../bootstrap.php';
 
 use AnyLLM\AnyLLM;
 use AnyLLM\Messages\{SystemMessage, UserMessage};
@@ -33,7 +33,6 @@ $response = $llm->chat(
         SystemMessage::create('You are a helpful PHP expert.'),
         UserMessage::create('What are PHP 8.2 features?'),
     ],
-    temperature: 0.7,
 );
 
 echo "Assistant: {$response->content}\n\n";
@@ -87,8 +86,10 @@ $tools = [
     Tool::fromCallable(
         name: 'get_weather',
         handler: function (
-            #[Description('City name')] string $city,
-            #[Description('Temperature unit')] string $unit = 'celsius'
+            #[Description('City name')]
+            string $city,
+            #[Description('Temperature unit')]
+            string $unit = 'celsius'
         ): array {
             // Simulated weather API call
             return [
@@ -135,14 +136,25 @@ echo "Iterations: {$result->iterations}\n\n";
 // Example 6: Provider Switching (same code, different provider)
 echo "=== Example 6: Provider Switching ===\n";
 
-$anthropic = AnyLLM::anthropic(apiKey: $_ENV['ANTHROPIC_API_KEY'] ?? 'your-api-key');
+try {
+    // Skip if no API key is set
+    if (empty($_ENV['ANTHROPIC_API_KEY'])) {
+        echo "Skipped (ANTHROPIC_API_KEY not set in .env)\n\n";
+    } else {
+        $anthropic = AnyLLM::anthropic(apiKey: $_ENV['ANTHROPIC_API_KEY']);
 
-$response = $anthropic->generateText(
-    model: 'claude-haiku-4-5',
-    prompt: 'Explain what PHP is in one sentence.',
-);
+        $response = $anthropic->generateText(
+            model: 'claude-haiku-4-5',
+            prompt: 'Explain what PHP is in one sentence.',
+        );
 
-echo "Claude says: {$response->text}\n\n";
+        echo "Claude says: {$response->text}\n\n";
+    }
+} catch (\AnyLLM\Exceptions\AuthenticationException $e) {
+    echo "Skipped (Invalid Anthropic API key)\n\n";
+} catch (\Exception $e) {
+    echo "Error: " . $e->getMessage() . "\n\n";
+}
 
 // Example 7: Streaming
 echo "=== Example 7: Streaming ===\n";
@@ -158,4 +170,3 @@ foreach ($llm->streamText(
 echo "\n\n";
 
 echo "All examples completed!\n";
-

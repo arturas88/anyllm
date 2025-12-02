@@ -24,7 +24,7 @@ final class RateLimitMiddleware implements MiddlewareInterface
 
         if ($this->rateLimiter->tooManyAttempts($key, $this->maxAttempts)) {
             $availableIn = $this->rateLimiter->availableIn($key);
-            
+
             throw new RateLimitException(
                 "Rate limit exceeded for '{$context->provider}/{$context->model}'. Try again in {$availableIn}s",
                 429
@@ -36,7 +36,7 @@ final class RateLimitMiddleware implements MiddlewareInterface
         $responseContext = $next($context);
 
         $remaining = $this->rateLimiter->remaining($key, $this->maxAttempts);
-        
+
         return $responseContext
             ->withMetadata('rate_limit_remaining', $remaining)
             ->withMetadata('rate_limit_max', $this->maxAttempts);
@@ -65,4 +65,3 @@ final class RateLimitMiddleware implements MiddlewareInterface
         return $new;
     }
 }
-

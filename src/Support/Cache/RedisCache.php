@@ -16,7 +16,7 @@ final class RedisCache implements CacheInterface
     public function get(string $key, mixed $default = null): mixed
     {
         $value = $this->redis->get($this->prefixKey($key));
-        
+
         if ($value === false) {
             return $default;
         }
@@ -26,7 +26,7 @@ final class RedisCache implements CacheInterface
 
     public function set(string $key, mixed $value, ?int $ttl = null): bool
     {
-        $ttl = $ttl ?? $this->defaultTtl;
+        $ttl ??= $this->defaultTtl;
         $prefixedKey = $this->prefixKey($key);
         $serialized = serialize($value);
 
@@ -66,7 +66,7 @@ final class RedisCache implements CacheInterface
 
         $result = [];
         foreach ($keys as $i => $key) {
-            $result[$key] = $values[$i] !== false 
+            $result[$key] = $values[$i] !== false
                 ? unserialize($values[$i])
                 : $default;
         }
@@ -76,7 +76,7 @@ final class RedisCache implements CacheInterface
 
     public function setMultiple(array $values, ?int $ttl = null): bool
     {
-        $ttl = $ttl ?? $this->defaultTtl;
+        $ttl ??= $this->defaultTtl;
 
         foreach ($values as $key => $value) {
             if (! $this->set($key, $value, $ttl)) {
@@ -109,7 +109,7 @@ final class RedisCache implements CacheInterface
     {
         $prefixedKey = $this->prefixKey($key);
         $serialized = serialize($value);
-        
+
         return $this->redis->set($prefixedKey, $serialized);
     }
 
@@ -130,4 +130,3 @@ final class RedisCache implements CacheInterface
         return self::KEY_PREFIX . $key;
     }
 }
-

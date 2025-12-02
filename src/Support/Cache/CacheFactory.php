@@ -26,12 +26,17 @@ final class CacheFactory
 
     private static function createRedisCache(array $config): RedisCache
     {
+        if (! extension_loaded('redis')) {
+            throw new ValidationException('Redis extension is not installed. Install it with: pecl install redis');
+        }
+
+        /** @phpstan-ignore-next-line */
         $redis = new \Redis();
-        
+
         $host = $config['host'] ?? '127.0.0.1';
         $port = $config['port'] ?? 6379;
         $timeout = $config['timeout'] ?? 0.0;
-        
+
         $redis->connect($host, $port, $timeout);
 
         if (isset($config['password'])) {
@@ -50,15 +55,20 @@ final class CacheFactory
 
     private static function createMemcachedCache(array $config): MemcachedCache
     {
+        if (! extension_loaded('memcached')) {
+            throw new ValidationException('Memcached extension is not installed. Install it with: pecl install memcached');
+        }
+
+        /** @phpstan-ignore-next-line */
         $memcached = new \Memcached();
-        
+
         $servers = $config['servers'] ?? [['127.0.0.1', 11211]];
-        
+
         foreach ($servers as $server) {
             $host = $server[0] ?? $server['host'] ?? '127.0.0.1';
             $port = $server[1] ?? $server['port'] ?? 11211;
             $weight = $server[2] ?? $server['weight'] ?? 0;
-            
+
             $memcached->addServer($host, $port, $weight);
         }
 
@@ -114,4 +124,3 @@ final class CacheFactory
         };
     }
 }
-

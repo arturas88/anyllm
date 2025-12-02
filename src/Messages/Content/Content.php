@@ -10,4 +10,3 @@ interface Content
 
     public function toAnthropicFormat(): array;
 }
-

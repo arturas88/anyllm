@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AnyLLM\Messages;
 
 use AnyLLM\Enums\Role;
+use AnyLLM\Messages\Content\Content;
 use AnyLLM\Responses\ChatResponse;
 use AnyLLM\Responses\Parts\ToolCall;
 
@@ -26,6 +27,19 @@ final class AssistantMessage extends Message
         return Role::Assistant;
     }
 
+    public static function create(string $content): static
+    {
+        return new static($content);
+    }
+
+    /**
+     * @param array<Content|string> $content
+     */
+    public static function withContent(array $content): static
+    {
+        return new static($content);
+    }
+
     public static function fromResponse(ChatResponse $response): self
     {
         return new self(
@@ -40,7 +54,7 @@ final class AssistantMessage extends Message
 
         if (count($this->toolCalls) > 0) {
             $formatted['tool_calls'] = array_map(
-                fn (ToolCall $tc) => [
+                fn(ToolCall $tc) => [
                     'id' => $tc->id,
                     'type' => 'function',
                     'function' => [
@@ -55,4 +69,3 @@ final class AssistantMessage extends Message
         return $formatted;
     }
 }
-

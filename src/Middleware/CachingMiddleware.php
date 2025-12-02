@@ -27,7 +27,7 @@ final class CachingMiddleware implements MiddlewareInterface
         // Check cache
         if ($this->cache->has($cacheKey)) {
             $cached = $this->cache->get($cacheKey);
-            
+
             return new ResponseContext(
                 request: $context,
                 response: $cached['response'],
@@ -84,4 +84,3 @@ final class CachingMiddleware implements MiddlewareInterface
         return $this;
     }
 }
-

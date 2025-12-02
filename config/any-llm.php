@@ -118,14 +118,14 @@ return [
     */
     'conversations' => [
         'enabled' => env('LLM_CONVERSATIONS_ENABLED', true),
-        
+
         // Repository driver: 'database', 'redis', 'file', or null for in-memory only
         'repository' => env('LLM_CONVERSATION_REPOSITORY', 'database'),
-        
+
         // Database settings
         'table' => 'llm_conversation',
         'messages_table' => 'llm_message',
-        
+
         // Redis settings (if using redis repository)
         'redis' => [
             'host' => env('REDIS_HOST', '127.0.0.1'),
@@ -133,16 +133,16 @@ return [
             'password' => env('REDIS_PASSWORD', null),
             'database' => env('REDIS_DB', 0),
         ],
-        
+
         // File storage path (if using file repository)
         'file_storage_path' => env('LLM_CONVERSATION_STORAGE', sys_get_temp_dir() . '/anyllm-conversations'),
-        
+
         // Auto-summarization settings
         'auto_summarize' => env('LLM_AUTO_SUMMARIZE', true),
         'summary_model' => env('LLM_SUMMARY_MODEL', 'gpt-4o-mini'),
         'summarize_after_messages' => env('LLM_SUMMARIZE_AFTER', 20),
         'keep_recent_messages' => env('LLM_KEEP_RECENT_MESSAGES', 5),
-        
+
         // Token optimization
         'max_context_tokens' => env('LLM_MAX_CONTEXT_TOKENS', 4000),
         'summary_prompt_template' => 'Summarize the following conversation concisely, preserving key information, decisions, and context:',
@@ -163,4 +163,3 @@ return [
         'cheap' => 'google:gemini-2.5-flash',
     ],
 ];
-

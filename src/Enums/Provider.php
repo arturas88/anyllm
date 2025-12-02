@@ -14,4 +14,3 @@ enum Provider: string
     case OpenRouter = 'openrouter';
     case Ollama = 'ollama';
 }
-

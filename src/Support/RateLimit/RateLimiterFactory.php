@@ -24,11 +24,11 @@ final class RateLimiterFactory
     private static function createRedisLimiter(array $config): RedisRateLimiter
     {
         $redis = new \Redis();
-        
+
         $host = $config['host'] ?? '127.0.0.1';
         $port = $config['port'] ?? 6379;
         $timeout = $config['timeout'] ?? 0.0;
-        
+
         $redis->connect($host, $port, $timeout);
 
         if (isset($config['password'])) {
@@ -75,4 +75,3 @@ final class RateLimiterFactory
         };
     }
 }
-

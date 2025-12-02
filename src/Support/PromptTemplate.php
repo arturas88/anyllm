@@ -9,7 +9,7 @@ use AnyLLM\Exceptions\ValidationException;
 final class PromptTemplate
 {
     private array $variables = [];
-    
+
     public function __construct(
         private string $template,
     ) {}
@@ -157,77 +157,76 @@ final class PromptTemplate
     public static function classification(array $categories): self
     {
         $categoriesList = implode(', ', $categories);
-        
+
         return self::make(
-            "Classify the following text into one of these categories: {$categoriesList}\n\n" .
-            "Text: {{text}}\n\n" .
-            "Category:"
+            "Classify the following text into one of these categories: {$categoriesList}\n\n"
+            . "Text: {{text}}\n\n"
+            . "Category:"
         );
     }
 
     public static function summarization(int $maxWords = 100): self
     {
         return self::make(
-            "Summarize the following text in no more than {$maxWords} words:\n\n" .
-            "{{text}}\n\n" .
-            "Summary:"
+            "Summarize the following text in no more than {$maxWords} words:\n\n"
+            . "{{text}}\n\n"
+            . "Summary:"
         );
     }
 
     public static function translation(string $targetLanguage): self
     {
         return self::make(
-            "Translate the following text to {$targetLanguage}:\n\n" .
-            "{{text}}\n\n" .
-            "Translation:"
+            "Translate the following text to {$targetLanguage}:\n\n"
+            . "{{text}}\n\n"
+            . "Translation:"
         );
     }
 
     public static function extraction(): self
     {
         return self::make(
-            "Extract {{entity}} from the following text:\n\n" .
-            "{{text}}\n\n" .
-            "Extracted {{entity}}:"
+            "Extract {{entity}} from the following text:\n\n"
+            . "{{text}}\n\n"
+            . "Extracted {{entity}}:"
         );
     }
 
     public static function questionAnswer(): self
     {
         return self::make(
-            "Context: {{context}}\n\n" .
-            "Question: {{question}}\n\n" .
-            "Answer based on the context above:"
+            "Context: {{context}}\n\n"
+            . "Question: {{question}}\n\n"
+            . "Answer based on the context above:"
         );
     }
 
     public static function sentiment(): self
     {
         return self::make(
-            "Analyze the sentiment of the following text and classify it as positive, negative, or neutral:\n\n" .
-            "{{text}}\n\n" .
-            "Sentiment:"
+            "Analyze the sentiment of the following text and classify it as positive, negative, or neutral:\n\n"
+            . "{{text}}\n\n"
+            . "Sentiment:"
         );
     }
 
     public static function codeReview(): self
     {
         return self::make(
-            "Review the following {{language}} code and provide feedback:\n\n" .
-            "```{{language}}\n" .
-            "{{code}}\n" .
-            "```\n\n" .
-            "Review:"
+            "Review the following {{language}} code and provide feedback:\n\n"
+            . "```{{language}}\n"
+            . "{{code}}\n"
+            . "```\n\n"
+            . "Review:"
         );
     }
 
     public static function brainstorming(): self
     {
         return self::make(
-            "Generate {{count}} creative ideas for:\n\n" .
-            "{{topic}}\n\n" .
-            "Ideas:"
+            "Generate {{count}} creative ideas for:\n\n"
+            . "{{topic}}\n\n"
+            . "Ideas:"
         );
     }
 }
-

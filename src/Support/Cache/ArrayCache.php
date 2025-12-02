@@ -29,8 +29,8 @@ final class ArrayCache implements CacheInterface
 
     public function set(string $key, mixed $value, ?int $ttl = null): bool
     {
-        $ttl = $ttl ?? $this->defaultTtl;
-        
+        $ttl ??= $this->defaultTtl;
+
         $this->cache[$key] = [
             'value' => $value,
             'expires_at' => time() + $ttl,
@@ -128,4 +128,3 @@ final class ArrayCache implements CacheInterface
         }
     }
 }
-

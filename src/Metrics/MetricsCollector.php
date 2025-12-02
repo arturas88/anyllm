@@ -179,7 +179,28 @@ final class MetricsCollector
      */
     public function getMetric(string $key): mixed
     {
-        return $this->metrics[$key] ?? null;
+        if (! isset($this->metrics[$key])) {
+            return null;
+        }
+
+        $data = $this->metrics[$key];
+
+        // Process histogram metrics to include computed statistics
+        if ($data['type'] === 'histogram') {
+            return [
+                'type' => 'histogram',
+                'count' => $data['count'],
+                'sum' => $data['sum'],
+                'avg' => $data['count'] > 0 ? $data['sum'] / $data['count'] : 0,
+                'min' => ! empty($data['values']) ? min($data['values']) : 0,
+                'max' => ! empty($data['values']) ? max($data['values']) : 0,
+                'p50' => $this->percentile($data['values'], 50),
+                'p95' => $this->percentile($data['values'], 95),
+                'p99' => $this->percentile($data['values'], 99),
+            ];
+        }
+
+        return $data;
     }
 
     /**
@@ -239,4 +260,3 @@ final class MetricsCollector
         return json_encode($this->getMetrics(), JSON_PRETTY_PRINT);
     }
 }
-

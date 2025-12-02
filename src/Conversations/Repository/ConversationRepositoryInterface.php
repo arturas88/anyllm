@@ -73,4 +73,3 @@ interface ConversationRepositoryInterface
      */
     public function findByDateRange(\DateTimeInterface $start, \DateTimeInterface $end, ?string $userId = null): array;
 }
-

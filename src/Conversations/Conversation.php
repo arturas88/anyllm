@@ -10,38 +10,38 @@ final class Conversation
 {
     /** @var array<ConversationMessage> */
     private array $messages = [];
-    
+
     private int $totalTokensUsed = 0;
     private float $totalCost = 0.0;
 
     public function __construct(
         public readonly string $id,
         public readonly string $uuid,
-        
+
         // Multi-tenancy
         public ?string $organizationId = null,
         public ?string $teamId = null,
         public ?string $userId = null,
         public ?string $sessionId = null,
-        
+
         // Environment
         public string $environment = 'production',
-        
+
         // Basic info
         public ?string $title = null,
         public array $metadata = [],
-        
+
         // Summary management
         public ?string $summary = null,
         public int $summaryTokenCount = 0,
         public ?string $summarizedAt = null,
         public int $messagesSummarized = 0,
-        
+
         // Configuration
         public bool $autoSummarize = true,
         public int $summarizeAfterMessages = 20,
         public int $keepRecentMessages = 5,
-        
+
         // Timestamps
         public ?\DateTimeImmutable $createdAt = null,
         public ?\DateTimeImmutable $updatedAt = null,
@@ -71,16 +71,19 @@ final class Conversation
             metadata: $config['metadata'] ?? [],
         );
     }
-    
+
     private static function generateUuid(): string
     {
         return sprintf(
             '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
-            mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
             mt_rand(0, 0xffff),
             mt_rand(0, 0x0fff) | 0x4000,
             mt_rand(0, 0x3fff) | 0x8000,
-            mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff)
         );
     }
 
@@ -89,6 +92,27 @@ final class Conversation
         $this->messages[] = $message;
         $this->totalTokensUsed += $message->totalTokens;
         $this->totalCost += $message->cost ?? 0.0;
+    }
+
+    /**
+     * Restore messages from deserialization (for repository use).
+     *
+     * @param array<ConversationMessage> $messages
+     */
+    public function restoreMessages(array $messages): void
+    {
+        $this->messages = $messages;
+        // Recalculate totals from messages
+        $this->totalTokensUsed = array_reduce(
+            $messages,
+            fn($sum, $msg) => $sum + $msg->totalTokens,
+            0
+        );
+        $this->totalCost = array_reduce(
+            $messages,
+            fn($sum, $msg) => $sum + ($msg->cost ?? 0.0),
+            0.0
+        );
     }
 
     /**
@@ -106,7 +130,7 @@ final class Conversation
     {
         return array_filter(
             $this->messages,
-            fn ($msg) => ! $msg->includedInSummary
+            fn($msg) => ! $msg->includedInSummary
         );
     }
 
@@ -123,6 +147,22 @@ final class Conversation
     public function getTotalCost(): float
     {
         return $this->totalCost;
+    }
+
+    /**
+     * Set total tokens used (for repository deserialization).
+     */
+    public function setTotalTokensUsed(int $tokens): void
+    {
+        $this->totalTokensUsed = $tokens;
+    }
+
+    /**
+     * Set total cost (for repository deserialization).
+     */
+    public function setTotalCost(float $cost): void
+    {
+        $this->totalCost = $cost;
     }
 
     public function needsSummarization(): bool
@@ -145,12 +185,12 @@ final class Conversation
         $this->summary = $summary;
         $this->summaryTokenCount = $tokenCount;
         $this->summarizedAt = date('Y-m-d H:i:s');
-        
+
         // Mark messages as summarized (except recent ones)
         $total = count($this->messages);
         $keepRecent = $this->keepRecentMessages;
         $summarizeCount = 0;
-        
+
         foreach ($this->messages as $index => $message) {
             if ($index < $total - $keepRecent && ! $message->includedInSummary) {
                 $message->includedInSummary = true;
@@ -158,13 +198,13 @@ final class Conversation
                 $summarizeCount++;
             }
         }
-        
+
         $this->messagesSummarized = $summarizeCount;
     }
 
     /**
      * Get messages for sending to LLM (with summary optimization).
-     * 
+     *
      * @return array<Message>
      */
     public function getMessagesForLLM(): array
@@ -199,12 +239,12 @@ final class Conversation
         // Calculate tokens that would have been used without summary
         $summarizedMessages = array_filter(
             $this->messages,
-            fn ($msg) => $msg->includedInSummary
+            fn($msg) => $msg->includedInSummary
         );
-        
+
         $originalTokens = array_reduce(
             $summarizedMessages,
-            fn ($sum, $msg) => $sum + $msg->totalTokens,
+            fn($sum, $msg) => $sum + $msg->totalTokens,
             0
         );
 
@@ -239,4 +279,3 @@ final class Conversation
         ];
     }
 }
-

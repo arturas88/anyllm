@@ -1,6 +1,6 @@
 <?php
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../bootstrap.php';
 
 use AnyLLM\AnyLLM;
 use AnyLLM\Conversations\ConversationManager;
@@ -13,10 +13,7 @@ use AnyLLM\Enums\Provider;
 echo "=== Conversation Persistence Examples ===\n\n";
 
 // Create LLM provider
-$llm = AnyLLM::provider(Provider::OPENAI)
-    ->apiKey(getenv('OPENAI_API_KEY'))
-    ->model('gpt-4o')
-    ->build();
+$llm = AnyLLM::openai(apiKey: getenv('OPENAI_API_KEY'));
 
 // =============================================
 // Example 1: Database Persistence
@@ -45,7 +42,7 @@ try {
     echo "Added user message\n";
 
     // Get response from LLM
-    $response = $manager->chat($conversation, $llm);
+    $response = $manager->chatWithConversation($conversation, $llm);
     echo "Assistant: " . substr($response->content(), 0, 100) . "...\n\n";
 
     // Find conversation later
@@ -53,8 +50,8 @@ try {
     echo "Loaded conversation from database:\n";
     echo "- ID: {$loaded->id}\n";
     echo "- Title: {$loaded->title}\n";
-    echo "- Messages: " . count($loaded->messages) . "\n";
-    echo "- Total tokens: {$loaded->totalTokens}\n\n";
+    echo "- Messages: " . $loaded->getTotalMessages() . "\n";
+    echo "- Total tokens: {$loaded->getTotalTokensUsed()}\n\n";
 
     // Search conversations
     $results = $manager->search('PHP', 'user-123');
@@ -95,7 +92,7 @@ try {
     // Retrieve from Redis
     $loaded = $manager->find($conversation->id);
     echo "Loaded conversation from Redis: {$loaded->title}\n";
-    echo "Messages: " . count($loaded->messages) . "\n\n";
+    echo "Messages: " . $loaded->getTotalMessages() . "\n\n";
 
     // Find all user conversations
     $userConversations = $manager->findByUserId('user-456');
@@ -129,7 +126,7 @@ echo "Conversation saved to: storage/conversations/{$conversation->id}.json\n";
 // Load it back
 $loaded = $manager->find($conversation->id);
 echo "Loaded conversation from file: {$loaded->title}\n";
-echo "Messages: " . count($loaded->messages) . "\n\n";
+echo "Messages: " . $loaded->getTotalMessages() . "\n\n";
 
 // Search in files
 $results = $manager->search('joke');
@@ -235,4 +232,3 @@ echo "- Production apps: Database or Redis\n";
 echo "- Development/testing: File or In-Memory\n";
 echo "- High performance: Redis\n";
 echo "- Complex queries: Database\n";
-

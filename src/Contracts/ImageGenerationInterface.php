@@ -37,4 +37,3 @@ interface ImageGenerationInterface
         array $options = [],
     ): ImageResponse;
 }
-

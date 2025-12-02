@@ -1,6 +1,6 @@
 <?php
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../bootstrap.php';
 
 use AnyLLM\AnyLLM;
 use AnyLLM\Enums\Provider;
@@ -9,7 +9,7 @@ use AnyLLM\Support\VectorMath;
 echo "=== Embeddings & Vector Operations Examples ===\n\n";
 
 // Create OpenAI provider
-$llm = AnyLLM::provider(Provider::OPENAI)
+$llm = AnyLLM::provider(Provider::OpenAI)
     ->apiKey(getenv('OPENAI_API_KEY'))
     ->build();
 
@@ -167,21 +167,25 @@ echo "Similarity clusters (threshold: 0.75):\n";
 
 $clustered = [];
 for ($i = 0; $i < count($items); $i++) {
-    if (isset($clustered[$i])) continue;
-    
+    if (isset($clustered[$i])) {
+        continue;
+    }
+
     $cluster = [$items[$i]];
     $clustered[$i] = true;
-    
+
     for ($j = $i + 1; $j < count($items); $j++) {
-        if (isset($clustered[$j])) continue;
-        
+        if (isset($clustered[$j])) {
+            continue;
+        }
+
         $sim = $itemEmbeddings->similarity($i, $j);
         if ($sim > 0.75) {
             $cluster[] = $items[$j];
             $clustered[$j] = true;
         }
     }
-    
+
     if (count($cluster) > 1) {
         echo "- " . implode(', ', $cluster) . "\n";
     }
@@ -261,10 +265,11 @@ use AnyLLM\Support\FileCache;
 
 $cache = new FileCache();
 
-function getEmbeddingsCached(array $texts, $llm, $cache): array {
+function getEmbeddingsCached(array $texts, $llm, $cache): array
+{
     $cacheKey = 'embeddings:' . md5(json_encode($texts));
-    
-    return $cache->remember($cacheKey, function() use ($texts, $llm) {
+
+    return $cache->remember($cacheKey, function () use ($texts, $llm) {
         echo "Computing embeddings (not cached)...\n";
         $response = $llm->embed('text-embedding-3-small', $texts);
         return $response->embeddings;
@@ -295,4 +300,3 @@ echo "Cost Savings:\n";
 echo "- Cache embeddings for frequently used texts\n";
 echo "- Batch embed multiple texts at once\n";
 echo "- Use smaller models (text-embedding-3-small) when possible\n";
-

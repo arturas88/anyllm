@@ -21,14 +21,6 @@ final class ToolMessage extends Message
         return Role::Tool;
     }
 
-    public static function create(string $toolCallId, string $content): self
-    {
-        return new self(
-            content: $content,
-            toolCallId: $toolCallId,
-        );
-    }
-
     public function toOpenAIFormat(): array
     {
         return [
@@ -38,4 +30,3 @@ final class ToolMessage extends Message
         ];
     }
 }
-

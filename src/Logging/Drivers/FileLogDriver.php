@@ -20,7 +20,7 @@ final class FileLogDriver implements LogDriverInterface
         $this->logPath = $logPath ?? sys_get_temp_dir() . '/anyllm-logs';
         $this->maxFileSize = $maxFileSize;
         $this->maxFiles = $maxFiles;
-        
+
         $this->ensureLogDirectory();
     }
 
@@ -36,7 +36,7 @@ final class FileLogDriver implements LogDriverInterface
 
         $timestamp = date('Y-m-d H:i:s');
         $level = $entry->error ? 'ERROR' : 'INFO';
-        
+
         // Format: [timestamp] LEVEL provider/model method - duration: Xms tokens: Y cost: $Z
         $line = sprintf(
             "[%s] %s %s/%s %s - duration: %dms tokens: %d cost: $%.4f\n",
@@ -69,7 +69,7 @@ final class FileLogDriver implements LogDriverInterface
     {
         $entries = [];
         $detailFiles = glob($this->logPath . '/details-*.jsonl');
-        
+
         if ($detailFiles === false) {
             return [];
         }
@@ -127,11 +127,11 @@ final class FileLogDriver implements LogDriverInterface
         $entries = $this->query();
 
         // Filter by criteria
-        $filtered = array_filter($entries, function($entry) use ($provider, $start, $end) {
+        $filtered = array_filter($entries, function ($entry) use ($provider, $start, $end) {
             if ($provider && $entry->provider !== $provider) {
                 return false;
             }
-            
+
             // Note: We don't have timestamps in LogEntry, would need to add them
             return true;
         });
@@ -204,7 +204,7 @@ final class FileLogDriver implements LogDriverInterface
     private function rotate(): void
     {
         $currentFile = $this->getCurrentLogFile();
-        
+
         // Rename current file
         $timestamp = date('YmdHis');
         $rotatedFile = $this->logPath . '/anyllm-' . $timestamp . '.log';
@@ -224,7 +224,7 @@ final class FileLogDriver implements LogDriverInterface
     private function writeDetailedLog(LogEntry $entry): void
     {
         $detailFile = $this->getCurrentDetailFile();
-        
+
         $data = [
             'timestamp' => date('Y-m-d H:i:s'),
             'provider' => $entry->provider,
@@ -285,8 +285,7 @@ final class FileLogDriver implements LogDriverInterface
     private function ensureLogDirectory(): void
     {
         if (! is_dir($this->logPath)) {
-            mkdir($this->logPath, 0755, true);
+            mkdir($this->logPath, 0o755, true);
         }
     }
 }
-

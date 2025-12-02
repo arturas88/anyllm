@@ -62,4 +62,3 @@ final readonly class FileContent implements Content
         ];
     }
 }
-

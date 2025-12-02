@@ -106,9 +106,8 @@ final class Workflow
     {
         return preg_replace_callback(
             '/\{\{\s*(\w+)\s*\}\}/',
-            fn ($matches) => (string) $context->getVariable($matches[1]),
+            fn($matches) => (string) $context->getVariable($matches[1]),
             $template,
         );
     }
 }
-

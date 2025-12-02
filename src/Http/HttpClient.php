@@ -140,4 +140,3 @@ final class HttpClient implements HttpClientInterface
         };
     }
 }
-

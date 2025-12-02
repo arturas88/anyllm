@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace AnyLLM\Conversations\Repository;
 
-use Any LLM\Exceptions\ValidationException;
+use AnyLLM\Exceptions\ValidationException;
 
 final class ConversationRepositoryFactory
 {
@@ -44,11 +44,11 @@ final class ConversationRepositoryFactory
     private static function createRedisRepository(array $config): RedisConversationRepository
     {
         $redis = new \Redis();
-        
+
         $host = $config['host'] ?? '127.0.0.1';
         $port = $config['port'] ?? 6379;
         $timeout = $config['timeout'] ?? 0.0;
-        
+
         $redis->connect($host, $port, $timeout);
 
         if (isset($config['password'])) {
@@ -65,7 +65,7 @@ final class ConversationRepositoryFactory
     private static function createFileRepository(array $config): FileConversationRepository
     {
         $storagePath = $config['storage_path'] ?? null;
-        
+
         return new FileConversationRepository($storagePath);
     }
 
@@ -84,4 +84,3 @@ final class ConversationRepositoryFactory
         };
     }
 }
-

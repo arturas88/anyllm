@@ -138,7 +138,7 @@ final class DatabaseConversationRepository implements ConversationRepositoryInte
     public function paginate(int $page = 1, int $perPage = 20, ?string $userId = null): array
     {
         $offset = ($page - 1) * $perPage;
-        
+
         if ($userId) {
             $stmt = $this->pdo->prepare(
                 "SELECT * FROM {$this->conversationsTable} 
@@ -252,7 +252,7 @@ final class DatabaseConversationRepository implements ConversationRepositoryInte
     private function insert(Conversation $conversation): void
     {
         $data = $conversation->toArray();
-        
+
         $stmt = $this->pdo->prepare(
             "INSERT INTO {$this->conversationsTable} 
              (id, uuid, organization_id, team_id, user_id, session_id, environment,
@@ -295,7 +295,7 @@ final class DatabaseConversationRepository implements ConversationRepositoryInte
     private function update(Conversation $conversation): void
     {
         $data = $conversation->toArray();
-        
+
         $stmt = $this->pdo->prepare(
             "UPDATE {$this->conversationsTable} 
              SET title = :title, metadata = :metadata, summary = :summary, 
@@ -423,12 +423,12 @@ final class DatabaseConversationRepository implements ConversationRepositoryInte
 
         return array_map(
             fn($row) => new ConversationMessage(
+                role: $row['role'],
+                content: $row['content'],
                 id: $row['id'] ?? null,
                 conversationId: (int) $row['conversation_id'],
                 organizationId: $row['organization_id'] ?? null,
                 userId: $row['user_id'] ?? null,
-                role: $row['role'],
-                content: $row['content'],
                 metadata: json_decode($row['metadata'] ?? '[]', true),
                 promptTokens: (int) ($row['prompt_tokens'] ?? 0),
                 completionTokens: (int) ($row['completion_tokens'] ?? 0),
@@ -448,4 +448,3 @@ final class DatabaseConversationRepository implements ConversationRepositoryInte
         );
     }
 }
-

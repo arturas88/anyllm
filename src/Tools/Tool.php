@@ -77,7 +77,7 @@ final class Tool
                     'type' => 'object',
                     'properties' => $this->parameters,
                     'required' => array_keys(
-                        array_filter($this->parameters, fn ($p) => ! ($p['optional'] ?? false))
+                        array_filter($this->parameters, fn($p) => ! ($p['optional'] ?? false))
                     ),
                 ],
             ],
@@ -93,7 +93,7 @@ final class Tool
                 'type' => 'object',
                 'properties' => $this->parameters,
                 'required' => array_keys(
-                    array_filter($this->parameters, fn ($p) => ! ($p['optional'] ?? false))
+                    array_filter($this->parameters, fn($p) => ! ($p['optional'] ?? false))
                 ),
             ],
         ];
@@ -144,4 +144,3 @@ final class Tool
         return 'string';
     }
 }
-

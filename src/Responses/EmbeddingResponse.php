@@ -13,10 +13,31 @@ final class EmbeddingResponse extends Response
      */
     public function __construct(
         public readonly array $embeddings,
-        public readonly string $model,
-        public readonly ?Usage $usage = null,
+        ?string $model = null,
+        ?Usage $usage = null,
         public readonly ?array $metadata = null,
-    ) {}
+        ?string $id = null,
+        ?array $raw = null,
+    ) {
+        parent::__construct($id, $model, $usage, $raw);
+    }
+
+    public static function fromArray(array $data): static
+    {
+        $embeddings = array_map(
+            fn($item) => $item['embedding'] ?? [],
+            $data['data'] ?? []
+        );
+
+        return new self(
+            embeddings: $embeddings,
+            model: $data['model'] ?? null,
+            usage: isset($data['usage']) ? Usage::fromArray($data['usage']) : null,
+            metadata: $data['metadata'] ?? null,
+            id: $data['id'] ?? null,
+            raw: $data,
+        );
+    }
 
     /**
      * Get a single embedding by index.
@@ -162,4 +183,3 @@ final class EmbeddingResponse extends Response
         return isset($this->embeddings[0]) ? count($this->embeddings[0]) : 0;
     }
 }
-

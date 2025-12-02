@@ -43,11 +43,16 @@ final class AnthropicProvider extends AbstractProvider
 
     protected function getDefaultHeaders(): array
     {
-        return array_merge([
-            'x-api-key' => $this->config->apiKey,
+        $headers = [
             'anthropic-version' => '2024-01-01',
             'Content-Type' => 'application/json',
-        ], $this->config->headers);
+        ];
+
+        if ($this->config->apiKey !== null) {
+            $headers['x-api-key'] = $this->config->apiKey;
+        }
+
+        return array_merge($headers, $this->config->headers);
     }
 
     public function generateText(
@@ -198,7 +203,7 @@ final class AnthropicProvider extends AbstractProvider
 
     protected function mapRequest(string $method, array $params): array
     {
-        return array_filter($params, fn ($v) => $v !== null);
+        return array_filter($params, fn($v) => $v !== null);
     }
 
     protected function mapResponse(string $method, array $response): array
@@ -287,7 +292,7 @@ final class AnthropicProvider extends AbstractProvider
     private function formatMessages(array $messages): array
     {
         return array_map(
-            fn ($message) => $message instanceof Message
+            fn($message) => $message instanceof Message
                 ? $message->toProviderFormat('anthropic')
                 : $message,
             $messages
@@ -297,7 +302,7 @@ final class AnthropicProvider extends AbstractProvider
     private function formatTools(array $tools): array
     {
         return array_map(
-            fn ($tool) => $tool instanceof Tool
+            fn($tool) => $tool instanceof Tool
                 ? $tool->toProviderFormat('anthropic')
                 : $tool,
             $tools
@@ -314,4 +319,3 @@ final class AnthropicProvider extends AbstractProvider
         };
     }
 }
-

@@ -1,6 +1,6 @@
 <?php
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../bootstrap.php';
 
 use AnyLLM\Middleware\CachingMiddleware;
 use AnyLLM\Middleware\Context\RequestContext;
@@ -27,12 +27,12 @@ class TimingMiddleware implements MiddlewareInterface
     {
         echo "→ Before request\n";
         $start = microtime(true);
-        
+
         $response = $next($context);
-        
+
         $duration = (microtime(true) - $start) * 1000;
         echo "→ After request (took " . round($duration, 2) . "ms)\n";
-        
+
         return $response->withMetadata('timing_ms', $duration);
     }
 }
@@ -48,7 +48,7 @@ $context = new RequestContext(
     params: ['messages' => [['role' => 'user', 'content' => 'Hello']]],
 );
 
-$result = $pipeline->execute($context, function($ctx) {
+$result = $pipeline->execute($context, function ($ctx) {
     // Simulate API call
     usleep(100000); // 100ms
     return new ResponseContext(
@@ -71,7 +71,7 @@ $cachingMiddleware = new CachingMiddleware($cache, ttl: 300);
 $pipeline = new MiddlewarePipeline([$cachingMiddleware]);
 
 echo "First request (cache miss):\n";
-$result1 = $pipeline->execute($context, function($ctx) {
+$result1 = $pipeline->execute($context, function ($ctx) {
     echo "  → Making API call...\n";
     return new ResponseContext(
         request: $ctx,
@@ -81,7 +81,7 @@ $result1 = $pipeline->execute($context, function($ctx) {
 echo "  Cached: " . ($result1->metadata['cached'] ? 'Yes' : 'No') . "\n\n";
 
 echo "Second request (cache hit):\n";
-$result2 = $pipeline->execute($context, function($ctx) {
+$result2 = $pipeline->execute($context, function ($ctx) {
     echo "  → Making API call...\n";
     return new ResponseContext(
         request: $ctx,
@@ -107,13 +107,13 @@ $pipeline = new MiddlewarePipeline([$rateLimitMiddleware]);
 
 for ($i = 1; $i <= 5; $i++) {
     try {
-        $result = $pipeline->execute($context, function($ctx) use ($i) {
+        $result = $pipeline->execute($context, function ($ctx) use ($i) {
             return new ResponseContext(
                 request: $ctx,
                 response: ['request' => $i],
             );
         });
-        
+
         echo "Request {$i}: ✓ (Remaining: {$result->metadata['rate_limit_remaining']})\n";
     } catch (\AnyLLM\Exceptions\RateLimitException $e) {
         echo "Request {$i}: ✗ Rate limited!\n";
@@ -138,8 +138,8 @@ for ($i = 1; $i <= 5; $i++) {
         method: 'chat',
         params: [],
     );
-    
-    $pipeline->execute($ctx, function($ctx) {
+
+    $pipeline->execute($ctx, function ($ctx) {
         usleep(rand(50000, 150000)); // Random delay
         return new ResponseContext(
             request: $ctx,
@@ -174,7 +174,7 @@ $loggingMiddleware = new LoggingMiddleware($logger);
 
 $pipeline = new MiddlewarePipeline([$loggingMiddleware]);
 
-$result = $pipeline->execute($context, function($ctx) {
+$result = $pipeline->execute($context, function ($ctx) {
     return new ResponseContext(
         request: $ctx,
         response: ['text' => 'Logged response'],
@@ -197,7 +197,7 @@ $pipeline = new MiddlewarePipeline([
 echo "Middleware count: {$pipeline->count()}\n\n";
 
 echo "First request:\n";
-$result1 = $pipeline->execute($context, function($ctx) {
+$result1 = $pipeline->execute($context, function ($ctx) {
     echo "  → Handler executed\n";
     usleep(50000);
     return new ResponseContext(
@@ -207,7 +207,7 @@ $result1 = $pipeline->execute($context, function($ctx) {
 });
 
 echo "\nSecond request (cached):\n";
-$result2 = $pipeline->execute($context, function($ctx) {
+$result2 = $pipeline->execute($context, function ($ctx) {
     echo "  → Handler executed (should not see this!)\n";
     return new ResponseContext(
         request: $ctx,
@@ -235,9 +235,9 @@ class UppercaseMiddleware implements MiddlewareInterface
             }
             $context = $context->withParams($context->params);
         }
-        
+
         $response = $next($context);
-        
+
         // Transform response
         if (is_array($response->response) && isset($response->response['text'])) {
             $response = $response->withResponse([
@@ -245,7 +245,7 @@ class UppercaseMiddleware implements MiddlewareInterface
                 'transformed' => true,
             ]);
         }
-        
+
         return $response;
     }
 }
@@ -259,7 +259,7 @@ $ctx = new RequestContext(
     params: ['messages' => [['role' => 'user', 'content' => 'hello']]],
 );
 
-$result = $pipeline->execute($ctx, function($ctx) {
+$result = $pipeline->execute($ctx, function ($ctx) {
     echo "Handler received: " . $ctx->params['messages'][0]['content'] . "\n";
     return new ResponseContext(
         request: $ctx,
@@ -283,7 +283,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
         } catch (\Exception $e) {
             echo "→ Caught error: {$e->getMessage()}\n";
             echo "→ Returning fallback response\n";
-            
+
             return new ResponseContext(
                 request: $context,
                 response: ['text' => 'Fallback response'],
@@ -296,7 +296,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
 
 $pipeline = new MiddlewarePipeline([new ErrorHandlingMiddleware()]);
 
-$result = $pipeline->execute($context, function($ctx) {
+$result = $pipeline->execute($context, function ($ctx) {
     throw new \Exception("Simulated API error");
 });
 
@@ -313,7 +313,7 @@ class ConditionalMiddleware implements MiddlewareInterface
     public function __construct(
         private string $targetProvider,
     ) {}
-    
+
     public function handle(RequestContext $context, callable $next): ResponseContext
     {
         if ($context->provider === $this->targetProvider) {
@@ -322,7 +322,7 @@ class ConditionalMiddleware implements MiddlewareInterface
         } else {
             echo "→ Middleware skipped for {$context->provider}\n";
         }
-        
+
         return $next($context);
     }
 }
@@ -376,4 +376,3 @@ echo "- Error handling\n";
 echo "- Request/response transformation\n";
 echo "- Authentication/authorization\n";
 echo "- Retry logic\n";
-

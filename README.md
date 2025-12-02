@@ -50,65 +50,236 @@ A comprehensive, battle-tested PHP 8.2+ library providing a unified interface fo
 
 ## 📦 Installation
 
+### Prerequisites
+
+- PHP 8.2+
+- Composer
+- An API key from your preferred provider (get OpenAI key at https://platform.openai.com/api-keys)
+
+### Step 1: Install Dependencies
+
 ```bash
 composer require arturas88/anyllm
 composer require guzzlehttp/guzzle
 ```
 
+### Step 2: Configure API Key
+
+**Get your API key**: https://platform.openai.com/api-keys
+
+Then set it up:
+
+```bash
+# Option 1: Create .env file (recommended)
+cp .env.example .env
+# Edit .env and replace 'sk-your-openai-api-key-here' with your actual key
+nano .env  # or use your preferred editor
+
+# Option 2: Export directly (temporary, for current session only)
+export OPENAI_API_KEY=sk-your-actual-key-here
+```
+
+**Important**: Make sure to use your actual API key, not the placeholder!
+
+### Step 3: Test It Works
+
+```bash
+composer test
+```
+
+You should see:
+```
+✅ Tests: 3, Assertions: 5
+```
+
+### Run Your First Example
+
+```bash
+php examples/basic-usage.php
+```
+
+Expected output:
+```
+=== Example 1: Simple Text Generation ===
+Response: PHP is a server-side scripting language...
+Tokens used: 37
+
+=== Example 2: Chat Conversation ===
+Assistant: PHP 8.2 introduced several new features...
+```
+
 ## 🚀 Quick Start
 
-### Basic Usage
+### 1. Basic Chat
 
 ```php
+<?php
+
 use AnyLLM\AnyLLM;
 use AnyLLM\Enums\Provider;
 
+// Create provider
 $llm = AnyLLM::provider(Provider::OPENAI)
     ->apiKey($_ENV['OPENAI_API_KEY'])
     ->model('gpt-4o')
     ->build();
 
+// Simple chat
 $response = $llm->generateText('gpt-4o', 'Explain PHP in simple terms');
 echo $response->text;
 ```
 
-### With Production Features
+### 2. Conversation with History
+
+```php
+use AnyLLM\Messages\UserMessage;
+
+$messages = [
+    new UserMessage('What is PHP?'),
+];
+
+$response = $llm->chat('gpt-4o', $messages);
+echo $response->content();
+```
+
+### 3. With Retry & Caching
+
+```php
+use AnyLLM\Support\FileCache;
+
+$cache = new FileCache();
+
+// Enable retry logic
+$llm->withRetry(maxRetries: 5);
+
+// Cache expensive calls
+$result = $cache->remember('llm:question:1', function() use ($llm) {
+    return $llm->generateText('gpt-4o', 'What is AI?');
+}, 3600);
+```
+
+### 4. Structured Output
+
+```php
+use AnyLLM\StructuredOutput\Attributes\Description;
+
+class Person {
+    #[Description('Full name')]
+    public string $name;
+    
+    #[Description('Age in years')]
+    public int $age;
+}
+
+$response = $llm->generateObject(
+    model: 'gpt-4o',
+    prompt: 'Extract person from: John Doe is 30 years old',
+    schema: Person::class
+);
+
+echo $response->object->name; // "John Doe"
+echo $response->object->age;  // 30
+```
+
+### 5. Tool Calling
+
+```php
+use AnyLLM\Tools\Tool;
+
+$weatherTool = Tool::fromCallable(
+    name: 'get_weather',
+    description: 'Get current weather',
+    callable: function(string $location): string {
+        return "Sunny, 72°F in {$location}";
+    }
+);
+
+$response = $llm->chat('gpt-4o', [
+    new UserMessage('What\'s the weather in Paris?')
+], tools: [$weatherTool]);
+```
+
+### 7. Production Features
+
+#### Persistence
+
+```php
+use AnyLLM\Conversations\ConversationManager;
+use AnyLLM\Conversations\Repository\ConversationRepositoryFactory;
+
+// Database persistence
+$repository = ConversationRepositoryFactory::create('database', [
+    'driver' => 'mysql',
+    'host' => 'localhost',
+    'database' => 'anyllm',
+    'username' => 'root',
+    'password' => '',
+]);
+
+$manager = new ConversationManager($llm, $repository);
+
+// Conversations persist forever
+$conversation = $manager->create('user-123', 'Support Chat');
+$manager->addMessage($conversation, 'user', 'Hello!');
+$response = $manager->chat($conversation, $llm);
+```
+
+#### Logging
+
+```php
+use AnyLLM\Logging\LoggerFactory;
+
+$logger = LoggerFactory::create('database', $dbConfig);
+
+// All requests are logged
+// Query logs, generate analytics, track costs
+$stats = $logger->analyze('openai');
+```
+
+#### Rate Limiting
+
+```php
+use AnyLLM\Support\RateLimit\RateLimiterFactory;
+
+$limiter = RateLimiterFactory::create('redis', $redisConfig);
+
+// Prevent abuse
+$limiter->attempt(
+    key: "user:{$userId}",
+    callback: fn() => $llm->chat($messages),
+    maxAttempts: 10,
+    decaySeconds: 60
+);
+```
+
+#### Caching
 
 ```php
 use AnyLLM\Support\Cache\CacheFactory;
-use AnyLLM\Support\RateLimit\RateLimiterFactory;
-use AnyLLM\Logging\LoggerFactory;
 
-// Set up infrastructure
 $cache = CacheFactory::create('redis', $redisConfig);
-$limiter = RateLimiterFactory::create('redis', $redisConfig);
-$logger = LoggerFactory::create('database', $dbConfig);
 
-// Use with retry, rate limiting, caching, and logging
-$llm->withRetry(maxRetries: 5);
-
-$limiter->attempt("user:{$userId}", function() use ($llm, $cache, $prompt) {
-    return $cache->remember(md5($prompt), function() use ($llm, $prompt) {
-        $response = $llm->generateText('gpt-4o', $prompt);
-        // Automatically logged
-        return $response;
-    }, 3600);
-}, maxAttempts: 10, decaySeconds: 60);
+// Massive cost savings
+$response = $cache->remember('prompt:' . md5($prompt), function() use ($llm, $prompt) {
+    return $llm->generateText('gpt-4o', $prompt);
+}, 3600);
 ```
 
-### Embeddings & Semantic Search
+### 6. Embeddings & Semantic Search
 
 ```php
-// Generate embeddings
 $texts = [
-    'Machine learning is a subset of AI',
-    'Python is a programming language',
-    'The Eiffel Tower is in Paris',
+    'The cat sat on the mat',
+    'A feline rested on a rug',
 ];
 
 $embeddings = $llm->embed('text-embedding-3-small', $texts);
 
-// Find similar texts
+// Check similarity
+$similarity = $embeddings->similarity(0, 1);
+echo "Similarity: " . number_format($similarity, 4); // 0.9234
+
+// Or find similar texts
 $queryEmbedding = $llm->embed('text-embedding-3-small', 'What is AI?');
 $results = \AnyLLM\Support\VectorMath::kNearest(
     $queryEmbedding->getEmbedding(0),
@@ -188,10 +359,10 @@ echo $metrics->exportPrometheus();
 
 ## 📚 Documentation
 
-### Getting Started
-- **[Getting Started Guide](GETTING_STARTED.md)** - Step-by-step tutorial
 - **[Changelog](CHANGELOG.md)** - Version history
 - **[Contributing](CONTRIBUTING.md)** - How to contribute
+- **[Troubleshooting](TROUBLESHOOTING.md)** - Common issues & solutions 🔧
+- **[Database Schema](DATABASE_SCHEMA.md)** - Database structure reference
 
 ## 💡 Examples
 
@@ -209,6 +380,28 @@ php examples/logging-example.php          # Logging & analytics
 php examples/rate-limiting-example.php    # Rate limiting
 php examples/cache-drivers-example.php    # Caching strategies
 php examples/quick-wins-demo.php          # All quick wins
+```
+
+## 🛠️ Quick Commands
+
+```bash
+# Run tests
+composer test
+
+# Check code style
+composer cs-fix -- --dry-run
+
+# Run static analysis
+composer phpstan
+
+# View test coverage
+composer test-coverage
+open coverage/index.html
+
+# Run specific example
+php examples/embeddings-example.php
+php examples/streaming-advanced.php
+php examples/middleware-example.php
 ```
 
 ## 🏗️ Architecture
@@ -277,21 +470,26 @@ return [
     
     'conversations' => [
         'repository' => 'database', // or 'redis', 'file'
+        'driver' => 'sqlite', // or 'mysql', 'pgsql'
+        'database' => __DIR__ . '/database/anyllm.sqlite', // SQLite path
         'auto_summarize' => true,
     ],
     
     'logging' => [
         'driver' => 'database', // or 'file'
+        'database_driver' => 'sqlite', // or 'mysql', 'pgsql'
         'enabled' => true,
     ],
     
     'cache' => [
-        'driver' => 'redis', // or 'memcached', 'database', 'file'
+        'driver' => 'database', // or 'redis', 'memcached', 'file'
+        'database_driver' => 'sqlite', // for database cache
         'default_ttl' => 3600,
     ],
     
     'rate_limiting' => [
-        'driver' => 'redis', // or 'database', 'memory'
+        'driver' => 'database', // or 'redis', 'memory'
+        'database_driver' => 'sqlite', // for database rate limiter
         'max_attempts' => 100,
         'decay_seconds' => 60,
     ],
@@ -299,6 +497,21 @@ return [
 ```
 
 ## 🗄️ Database Setup
+
+### SQLite (Recommended for Local Development)
+
+Perfect for local development - no server setup required:
+
+```php
+use AnyLLM\Conversations\Repository\ConversationRepositoryFactory;
+
+$repository = ConversationRepositoryFactory::create('database', [
+    'driver' => 'sqlite',
+    'database' => __DIR__ . '/database/anyllm.sqlite',
+]);
+```
+
+### MySQL/PostgreSQL (Production)
 
 ```bash
 # Run migrations
@@ -308,6 +521,43 @@ php artisan migrate
 mysql database < database/migrations/create_llm_logs_table.php
 mysql database < database/migrations/create_llm_conversations_table.php
 mysql database < database/migrations/create_llm_messages_table.php
+```
+
+**Supported Databases:**
+- ✅ **SQLite** - Perfect for local development (zero setup)
+- ✅ **MySQL** - Production-ready, high performance
+- ✅ **PostgreSQL** - Advanced features, JSON support
+
+## 🎯 Best Practices
+
+### 1. Always Use Retry Logic
+
+```php
+$llm->withRetry(maxRetries: 5)->chat($messages);
+```
+
+### 2. Cache Expensive Calls
+
+```php
+$cache->remember($key, fn() => $llm->embed($texts), 3600);
+```
+
+### 3. Monitor Usage
+
+```php
+$logger->analyze(); // Get cost and usage stats
+```
+
+### 4. Set Rate Limits
+
+```php
+$limiter->attempt($userKey, $callback, maxAttempts: 10);
+```
+
+### 5. Use Conversations for Chat
+
+```php
+$manager->chat($conversation, $llm); // Auto-saves, auto-summarizes
 ```
 
 ## 🧪 Testing
@@ -325,6 +575,81 @@ $llm = AnyLLM::provider(Provider::FAKE)
 
 // Make assertions
 $fake->assertTextGenerationCalled(times: 1);
+```
+
+## 🔧 Common Issues & Troubleshooting
+
+### Issue 1: "OPENAI_API_KEY not set"
+
+**Solution**: Make sure you created the `.env` file with your API key:
+```bash
+cat .env  # Should show: OPENAI_API_KEY=sk-...
+```
+
+### Issue 2: "cURL error 77: certificate file"
+
+This happens with some local PHP environments (like Laravel Herd).
+
+**Solution**: Set the certificate path or disable SSL verification (development only):
+```bash
+# Option 1: Download certificates
+curl https://curl.se/ca/cacert.pem -o cacert.pem
+export CURL_CA_BUNDLE=$(pwd)/cacert.pem
+
+# Option 2: Disable SSL verification (NOT for production!)
+export CURLOPT_SSL_VERIFYPEER=false
+```
+
+### Issue 3: "Class not found"
+
+**Solution**: Regenerate the autoloader:
+```bash
+composer dump-autoload
+```
+
+### Issue 4: Example returns empty response
+
+**Possible causes**:
+- Invalid API key
+- Rate limit exceeded
+- Model doesn't support the feature
+- Network connectivity issue
+
+**Debug**:
+```bash
+# Test basic connectivity
+php -r "require 'bootstrap.php'; \$llm = AnyLLM\AnyLLM::openai(apiKey: \$_ENV['OPENAI_API_KEY']); var_dump(\$llm);"
+```
+
+### API Key Issues
+
+```php
+// Validate API key
+use AnyLLM\Config\ConfigValidator;
+ConfigValidator::requireApiKey($apiKey, 'OpenAI');
+```
+
+### Rate Limits
+
+```php
+// Check remaining attempts
+$remaining = $limiter->remaining($key, $maxAttempts);
+```
+
+### Token Issues
+
+```php
+// Estimate tokens before calling
+use AnyLLM\Support\TokenCounter;
+$tokens = TokenCounter::estimate($text, 'gpt-4');
+```
+
+### Debugging
+
+```php
+// Enable detailed logging
+use AnyLLM\Logging\LoggerFactory;
+$logger = LoggerFactory::create('file', ['log_path' => './logs']);
 ```
 
 ## 🚢 Production Checklist
@@ -373,7 +698,7 @@ Built with ❤️ using PHP 8.2+, Guzzle, and modern PHP best practices.
 </p>
 
 <p align="center">
-  <a href="GETTING_STARTED.md">Get Started</a> •
-  <a href="examples/">View Examples</a> •
+  <a href="#quick-start">Get Started</a> •
+  <a href="#examples">View Examples</a> •
   <a href="CHANGELOG.md">Changelog</a>
 </p>

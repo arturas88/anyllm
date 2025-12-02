@@ -11,4 +11,3 @@ enum Role: string
     case Assistant = 'assistant';
     case Tool = 'tool';
 }
-

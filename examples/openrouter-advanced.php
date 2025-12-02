@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../bootstrap.php';
 
 use AnyLLM\AnyLLM;
 use AnyLLM\Messages\{SystemMessage, UserMessage};
@@ -12,7 +12,7 @@ echo "=== OpenRouter Advanced Features Demo ===\n\n";
 /**
  * OpenRouter provides access to 100+ models through a unified interface
  * with advanced routing and fallback capabilities.
- * 
+ *
  * @see https://openrouter.ai/docs/api/reference/overview
  */
 
@@ -70,12 +70,11 @@ try {
             'models' => [
                 'openai/gpt-4',           // Try first
                 'anthropic/claude-3.5-sonnet', // Then this
-                'google/gemini-3-pro-preview',  // Then this
-                'openai/gpt-3.5-turbo',   // Finally this
+                'openai/gpt-3.5-turbo',   // Finally this (max 3 models)
             ],
         ],
     );
-    
+
     echo "Response: {$response->content}\n";
     echo "Model used: {$response->model}\n";
 } catch (\Exception $e) {
@@ -103,7 +102,7 @@ try {
             ],
         ],
     );
-    
+
     echo "Response: {$response->content}\n";
 } catch (\Exception $e) {
     echo "Error: {$e->getMessage()}\n";
@@ -128,7 +127,7 @@ try {
             'transforms' => ['middle-out'], // Optimize token usage
         ],
     );
-    
+
     echo "Response: {$response->content}\n";
 } catch (\Exception $e) {
     echo "Error: {$e->getMessage()}\n";
@@ -156,7 +155,7 @@ try {
             'seed' => 12345, // Reproducible outputs
         ],
     );
-    
+
     echo "Response: {$response->content}\n";
 } catch (\Exception $e) {
     echo "Error: {$e->getMessage()}\n";
@@ -174,11 +173,11 @@ try {
         model: 'openai/gpt-3.5-turbo',
         messages: [UserMessage::create('Hello! How are you?')],
     );
-    
+
     echo "Generation ID: {$response->id}\n";
     echo "Model: {$response->model}\n";
     echo "Tokens: {$response->usage?->totalTokens}\n";
-    
+
     // Fetch detailed stats (native token counts, actual cost)
     echo "\nFetching detailed statistics...\n";
     try {
@@ -204,7 +203,7 @@ echo str_repeat('-', 50) . "\n";
 try {
     echo "Question: Count from 1 to 10 slowly\n";
     echo "Streaming: ";
-    
+
     foreach ($openrouter->streamChat(
         model: 'openai/gpt-3.5-turbo',
         messages: [UserMessage::create('Count from 1 to 10 slowly')],
@@ -228,12 +227,12 @@ echo str_repeat('-', 50) . "\n";
 try {
     $response = $openrouter->chat(
         model: 'openai/gpt-4o-mini',
-        messages: [UserMessage::create('List 3 programming languages with their year of creation')],
+        messages: [UserMessage::create('List 3 programming languages with their year of creation. Return your response as a JSON object with a "languages" array.')],
         options: [
             'response_format' => ['type' => 'json_object'],
         ],
     );
-    
+
     echo "JSON Response:\n";
     $data = json_decode($response->content, true);
     echo json_encode($data, JSON_PRETTY_PRINT) . "\n";
@@ -265,4 +264,3 @@ echo "• High availability systems\n";
 echo "• Cost optimization\n";
 echo "• A/B testing different models\n";
 echo "• Accessing latest models without code changes\n";
-

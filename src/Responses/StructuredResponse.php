@@ -40,9 +40,32 @@ final class StructuredResponse extends Response
         };
 
         $content = $data['content'] ?? $data['object'] ?? $data;
-        
+
         if (is_string($content)) {
-            $content = json_decode($content, true);
+            $decoded = json_decode($content, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $content = $decoded;
+            } else {
+                // If JSON decode failed, try to extract JSON from the string
+                if (preg_match('/\{.*\}/s', $content, $matches)) {
+                    $decoded = json_decode($matches[0], true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        $content = $decoded;
+                    }
+                }
+            }
+        }
+
+        // Ensure content is an array for parsing
+        if (! is_array($content)) {
+            $content = [];
+        }
+
+        // If we have a schema but content is empty, this is likely an error
+        if ($schemaInstance !== null && empty($content)) {
+            throw new \RuntimeException(
+                'Received empty response from provider. This may indicate a schema validation error or the model was unable to generate structured output.'
+            );
         }
 
         $parsed = $schemaInstance?->parse($content) ?? $content;
@@ -65,4 +88,3 @@ final class StructuredResponse extends Response
         ];
     }
 }
-

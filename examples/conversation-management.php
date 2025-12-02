@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../bootstrap.php';
 
 use AnyLLM\AnyLLM;
 use AnyLLM\Conversations\ConversationManager;
@@ -59,14 +59,14 @@ $messages = [
 ];
 
 foreach ($messages as $index => $message) {
-    echo "\nUser ({$index + 1}): {$message}\n";
-    
+    echo "\nUser (" . ($index + 1) . "): {$message}\n";
+
     $response = $manager->chat(
         conversationId: $conversationId,
         userMessage: $message,
         model: 'gpt-4o-mini',
     );
-    
+
     echo "Assistant: " . substr($response->content, 0, 100) . "...\n";
     echo "Tokens: {$response->usage?->totalTokens}\n";
 }
@@ -110,16 +110,16 @@ $topics = [
 ];
 
 foreach ($topics as $index => $topic) {
-    echo "\nMessage {$index + 1}: {$topic}\n";
-    
+    echo "\nMessage " . ($index + 1) . ": {$topic}\n";
+
     $response = $manager->chat(
         conversationId: $longConvId,
         userMessage: $topic,
         model: 'gpt-4o-mini',
     );
-    
+
     echo "Response received (" . ($response->usage?->totalTokens ?? 0) . " tokens)\n";
-    
+
     // Check if conversation was summarized
     $conv = $manager->conversation($longConvId);
     if ($conv->hasSummary() && $index > 0) {
@@ -199,7 +199,7 @@ echo "Has summary: " . ($manualConv->hasSummary() ? 'Yes' : 'No') . "\n";
 
 // Manually trigger summarization
 echo "\nManually summarizing conversation...\n";
-$manager->summarize($manualConv);
+$manager->summarize($manualConv, $llm);
 
 echo "Summary created: " . substr($manualConv->summary ?? '', 0, 100) . "...\n";
 echo "Summary tokens: {$manualConv->summaryTokenCount}\n";
@@ -240,7 +240,7 @@ for ($i = 1; $i <= 3; $i++) {
         id: $convId,
         userId: $userId,
     );
-    
+
     $manager->chat(
         conversationId: $convId,
         userMessage: "Conversation {$i} message",
@@ -283,4 +283,3 @@ echo "• auto_summarize: Enable/disable auto-summarization\n";
 echo "• summarize_after_messages: Message threshold for summarization\n";
 echo "• keep_recent_messages: How many recent messages to preserve\n";
 echo "• summary_model: Which model to use for summarization\n";
-

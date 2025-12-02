@@ -88,7 +88,7 @@ final class MemoryRateLimiter implements RateLimiterInterface
     private function clearExpired(): void
     {
         $now = time();
-        
+
         foreach ($this->cache as $key => $data) {
             if ($data['reset_at'] <= $now) {
                 unset($this->cache[$key]);
@@ -96,4 +96,3 @@ final class MemoryRateLimiter implements RateLimiterInterface
         }
     }
 }
-

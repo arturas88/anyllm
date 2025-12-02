@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace AnyLLM;
 
+use AnyLLM\Builder\ProviderBuilder;
 use AnyLLM\Config\ProviderConfig;
 use AnyLLM\Contracts\ProviderInterface;
 use AnyLLM\Enums\Provider;
@@ -17,6 +18,14 @@ use AnyLLM\Providers\Ollama\OllamaProvider;
 
 final class AnyLLM
 {
+    /**
+     * Create a provider builder for fluent configuration.
+     */
+    public static function provider(Provider|string $provider): ProviderBuilder
+    {
+        return new ProviderBuilder($provider);
+    }
+
     /**
      * Create a provider instance.
      */

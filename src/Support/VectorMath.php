@@ -156,4 +156,3 @@ final class VectorMath
         return $sum;
     }
 }
-

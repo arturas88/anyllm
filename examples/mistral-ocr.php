@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../bootstrap.php';
 
 use AnyLLM\AnyLLM;
 
@@ -22,15 +22,18 @@ echo "1. Basic OCR - Extract All Text\n";
 echo str_repeat('-', 50) . "\n";
 
 try {
-    // Replace with your image URL or use base64
-    $imageUrl = 'https://example.com/document.jpg';
-    
+    // Using a publicly accessible test image
+    $imageUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png';
+
+    // Note: Replace with your own image URL containing text for real OCR results
+    // Example: 'https://your-domain.com/document.jpg'
+
     $result = $mistral->extractText(
         model: 'pixtral-12b-2409', // Mistral's vision model
         image: $imageUrl,
         prompt: 'Extract all text from this image. Be precise and maintain formatting.',
     );
-    
+
     echo "Extracted Text:\n";
     echo $result['text'] . "\n";
     echo "\nTokens used: " . ($result['usage']['total_tokens'] ?? 'N/A') . "\n";
@@ -46,8 +49,12 @@ echo "2. Receipt OCR - Extract Structured Data\n";
 echo str_repeat('-', 50) . "\n";
 
 try {
-    $receiptImageUrl = 'https://example.com/receipt.jpg';
-    
+    // Using a publicly accessible test image
+    $receiptImageUrl = 'https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=800&h=600&fit=crop';
+
+    // Note: For real receipt OCR, use an actual receipt image
+    // Example: 'https://your-domain.com/receipt.jpg'
+
     $result = $mistral->extractText(
         model: 'pixtral-12b-2409',
         image: $receiptImageUrl,
@@ -55,10 +62,10 @@ try {
                 merchant name, date, total amount, tax, items list (name and price), 
                 and payment method.',
     );
-    
+
     echo "Receipt Data:\n";
     echo $result['text'] . "\n";
-    
+
     // Parse if returned as JSON
     try {
         $data = json_decode($result['text'], true);
@@ -83,15 +90,18 @@ echo "3. Business Card OCR\n";
 echo str_repeat('-', 50) . "\n";
 
 try {
-    $businessCardUrl = 'https://example.com/business-card.jpg';
-    
+    // Using a publicly accessible test image
+    $businessCardUrl = 'https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=800&h=600&fit=crop';
+
+    // Note: For real business card OCR, use an actual business card image
+
     $result = $mistral->extractText(
         model: 'pixtral-12b-2409',
         image: $businessCardUrl,
         prompt: 'Extract contact information from this business card: name, title, 
                 company, email, phone, address. Format as JSON.',
     );
-    
+
     echo "Business Card Info:\n";
     echo $result['text'] . "\n";
 } catch (\Exception $e) {
@@ -106,15 +116,18 @@ echo "4. Handwritten Text OCR\n";
 echo str_repeat('-', 50) . "\n";
 
 try {
-    $handwrittenUrl = 'https://example.com/handwritten-note.jpg';
-    
+    // Using a publicly accessible test image
+    $handwrittenUrl = 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=600&fit=crop';
+
+    // Note: For real handwritten OCR, use an actual handwritten text image
+
     $result = $mistral->extractText(
         model: 'pixtral-12b-2409',
         image: $handwrittenUrl,
         prompt: 'Read and transcribe the handwritten text in this image. 
                 Be careful with difficult-to-read characters.',
     );
-    
+
     echo "Transcribed Text:\n";
     echo $result['text'] . "\n";
 } catch (\Exception $e) {
@@ -129,15 +142,18 @@ echo "5. Multi-Language OCR\n";
 echo str_repeat('-', 50) . "\n";
 
 try {
-    $multiLangUrl = 'https://example.com/multilingual-doc.jpg';
-    
+    // Using a publicly accessible test image
+    $multiLangUrl = 'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=800&h=600&fit=crop';
+
+    // Note: For real multilingual OCR, use an actual multilingual document image
+
     $result = $mistral->extractText(
         model: 'pixtral-12b-2409',
         image: $multiLangUrl,
         prompt: 'Extract all text from this document. Identify and label the language 
                 of each section. Translate non-English sections to English.',
     );
-    
+
     echo "Multi-Language Content:\n";
     echo $result['text'] . "\n";
 } catch (\Exception $e) {
@@ -152,15 +168,18 @@ echo "6. Form Field Extraction\n";
 echo str_repeat('-', 50) . "\n";
 
 try {
-    $formUrl = 'https://example.com/filled-form.jpg';
-    
+    // Using a publicly accessible test image
+    $formUrl = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&h=600&fit=crop';
+
+    // Note: For real form OCR, use an actual filled form image
+
     $result = $mistral->extractText(
         model: 'pixtral-12b-2409',
         image: $formUrl,
         prompt: 'This is a filled form. Extract all field labels and their corresponding 
                 filled values. Return as JSON with field_label: value pairs.',
     );
-    
+
     echo "Form Data:\n";
     echo $result['text'] . "\n";
 } catch (\Exception $e) {
@@ -175,8 +194,11 @@ echo "7. Invoice OCR & Processing\n";
 echo str_repeat('-', 50) . "\n";
 
 try {
-    $invoiceUrl = 'https://example.com/invoice.pdf';
-    
+    // Using a publicly accessible test image
+    $invoiceUrl = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&h=600&fit=crop';
+
+    // Note: For real invoice OCR, use an actual invoice image
+
     $result = $mistral->extractText(
         model: 'pixtral-12b-2409',
         image: $invoiceUrl,
@@ -184,7 +206,7 @@ try {
                 vendor details, line items (description, quantity, price), 
                 subtotal, tax, and total. Return as structured JSON.',
     );
-    
+
     echo "Invoice Data:\n";
     echo $result['text'] . "\n";
 } catch (\Exception $e) {
@@ -215,4 +237,3 @@ echo "• Be specific in your prompts\n";
 echo "• Request JSON for structured data\n";
 echo "• Test with high-quality images\n";
 echo "• Combine with chat for analysis\n";
-

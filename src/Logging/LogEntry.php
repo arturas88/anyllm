@@ -13,36 +13,36 @@ final readonly class LogEntry
         public string $method,
         public array $request,
         public array $response,
-        
+
         // Tracing
         public ?string $requestId = null,
         public ?string $traceId = null,
         public ?string $parentRequestId = null,
-        
+
         // Event info
         public string $eventType = 'request', // request, response, error, stream_chunk
-        
+
         // Multi-tenancy
         public ?string $organizationId = null,
         public ?string $teamId = null,
         public ?string $userId = null,
         public ?string $sessionId = null,
-        
+
         // Environment
         public string $environment = 'production',
-        
+
         // Metrics
         public ?float $duration = null, // milliseconds
         public int $promptTokens = 0,
         public int $completionTokens = 0,
         public int $totalTokens = 0,
         public float $cost = 0.0,
-        
+
         // Audit
         public ?string $ipAddress = null,
         public ?string $userAgent = null,
         public ?string $apiKeyId = null,
-        
+
         // Additional data
         public ?string $error = null,
         public array $context = [],
@@ -115,12 +115,14 @@ final readonly class LogEntry
     {
         return sprintf(
             '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
-            mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
             mt_rand(0, 0xffff),
             mt_rand(0, 0x0fff) | 0x4000,
             mt_rand(0, 0x3fff) | 0x8000,
-            mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff)
         );
     }
 }
-

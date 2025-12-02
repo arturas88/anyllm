@@ -1,6 +1,6 @@
 <?php
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../bootstrap.php';
 
 use AnyLLM\Logging\LogEntry;
 use AnyLLM\Logging\LoggerFactory;
@@ -171,7 +171,7 @@ foreach ($providers as $i => $provider) {
             cost: rand(1, 10) / 1000,
             metadata: ['batch' => 'analytics-test'],
         );
-        
+
         $fileLogger->write($entry);
     }
 }
@@ -211,4 +211,3 @@ echo "\n=== Logging examples completed! ===\n\n";
 echo "Log files created in: " . __DIR__ . "/../storage/logs/\n";
 echo "- anyllm-" . date('Y-m-d') . ".log (human-readable)\n";
 echo "- details-" . date('Y-m-d') . ".jsonl (machine-readable JSON lines)\n";
-

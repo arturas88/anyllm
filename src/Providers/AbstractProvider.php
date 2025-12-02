@@ -30,7 +30,7 @@ abstract class AbstractProvider implements ProviderInterface
                 headers: $this->getDefaultHeaders(),
             );
         }
-        
+
         // Enable retry by default
         $this->retryHandler = new RetryHandler(
             maxRetries: $config->options['retry_max_attempts'] ?? 3,
@@ -78,13 +78,13 @@ abstract class AbstractProvider implements ProviderInterface
         array $params = [],
     ): array {
         $mappedRequest = $this->mapRequest($method, $params);
-        
+
         $operation = fn() => $this->http->post($endpoint, $mappedRequest);
-        
+
         $response = $this->retryHandler
             ? $this->retryHandler->retry($operation)
             : $operation();
-        
+
         return $this->mapResponse($method, $response);
     }
 
@@ -105,5 +105,12 @@ abstract class AbstractProvider implements ProviderInterface
     {
         return $this->http;
     }
-}
 
+    /**
+     * Get the default model from config if available.
+     */
+    protected function getDefaultModel(): ?string
+    {
+        return $this->config->options['default_model'] ?? null;
+    }
+}

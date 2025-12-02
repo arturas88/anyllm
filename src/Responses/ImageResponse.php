@@ -24,7 +24,7 @@ final class ImageResponse extends Response
     public static function fromArray(array $data): static
     {
         $urls = [];
-        
+
         if (isset($data['data'])) {
             foreach ($data['data'] as $image) {
                 $urls[] = $image['url'] ?? $image['b64_json'] ?? '';
@@ -50,4 +50,3 @@ final class ImageResponse extends Response
         ];
     }
 }
-

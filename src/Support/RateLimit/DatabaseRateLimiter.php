@@ -73,7 +73,7 @@ final class DatabaseRateLimiter implements RateLimiterInterface
              WHERE rate_key = :key AND reset_at > NOW()"
         );
         $stmt->execute(['key' => $key]);
-        
+
         $result = $stmt->fetch(\PDO::FETCH_ASSOC);
         return $result ? max(0, (int) $result['seconds']) : 0;
     }
@@ -98,7 +98,7 @@ final class DatabaseRateLimiter implements RateLimiterInterface
              WHERE rate_key = :key AND reset_at > NOW()"
         );
         $stmt->execute(['key' => $key]);
-        
+
         $result = $stmt->fetch(\PDO::FETCH_ASSOC);
         return $result ? (int) $result['attempts'] : 0;
     }
@@ -127,4 +127,3 @@ final class DatabaseRateLimiter implements RateLimiterInterface
         ");
     }
 }
-

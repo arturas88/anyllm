@@ -14,7 +14,7 @@ use AnyLLM\Tools\Tool;
 
 /**
  * Ollama Provider - Run LLMs locally
- * 
+ *
  * Ollama provides a local LLM server with an OpenAI-compatible API.
  * Perfect for development, testing, and privacy-sensitive applications.
  */
@@ -239,7 +239,7 @@ final class OllamaProvider extends AbstractProvider
 
     protected function mapRequest(string $method, array $params): array
     {
-        return array_filter($params, fn ($v) => $v !== null);
+        return array_filter($params, fn($v) => $v !== null);
     }
 
     protected function mapResponse(string $method, array $response): array
@@ -272,7 +272,7 @@ final class OllamaProvider extends AbstractProvider
     private function formatMessages(array $messages): array
     {
         return array_map(
-            fn ($message) => $message instanceof Message
+            fn($message) => $message instanceof Message
                 ? $message->toProviderFormat('openai')
                 : $message,
             $messages
@@ -282,11 +282,10 @@ final class OllamaProvider extends AbstractProvider
     private function formatTools(array $tools): array
     {
         return array_map(
-            fn ($tool) => $tool instanceof Tool
+            fn($tool) => $tool instanceof Tool
                 ? $tool->toProviderFormat('openai')
                 : $tool,
             $tools
         );
     }
 }
-

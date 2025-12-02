@@ -23,7 +23,6 @@ abstract class Response
             'id' => $this->id,
             'model' => $this->model,
             'usage' => $this->usage?->toArray(),
-        ], fn ($v) => $v !== null);
+        ], fn($v) => $v !== null);
     }
 }
-

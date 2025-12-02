@@ -24,9 +24,9 @@ final class MetricsMiddleware implements MiddlewareInterface
 
         try {
             $responseContext = $next($context);
-            
+
             $this->recordSuccess($context, $responseContext, $startTime);
-            
+
             return $responseContext->withMetadata('metrics_recorded', true);
         } catch (\Throwable $e) {
             $this->recordFailure($context, $startTime);
@@ -95,7 +95,7 @@ final class MetricsMiddleware implements MiddlewareInterface
     public function getMetrics(): array
     {
         $metrics = $this->metrics;
-        
+
         // Calculate averages
         if ($metrics['total_requests'] > 0) {
             $metrics['avg_duration_ms'] = $metrics['total_duration_ms'] / $metrics['total_requests'];
@@ -123,4 +123,3 @@ final class MetricsMiddleware implements MiddlewareInterface
         ];
     }
 }
-

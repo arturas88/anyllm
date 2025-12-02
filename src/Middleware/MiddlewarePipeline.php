@@ -70,4 +70,3 @@ final class MiddlewarePipeline
         return count($this->middleware);
     }
 }
-

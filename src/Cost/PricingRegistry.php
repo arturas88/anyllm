@@ -101,7 +101,7 @@ final class PricingRegistry
 
         // Ollama is free (local)
         self::$pricing['ollama'] = [];
-        
+
         // OpenRouter varies by model - use their API for pricing
         self::$pricing['openrouter'] = [];
     }
@@ -134,4 +134,3 @@ final class PricingRegistry
         return $pricing->calculateCost($inputTokens, $outputTokens, $cachedTokens);
     }
 }
-

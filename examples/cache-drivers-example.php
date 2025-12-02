@@ -1,6 +1,6 @@
 <?php
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../bootstrap.php';
 
 use AnyLLM\Support\Cache\ArrayCache;
 use AnyLLM\Support\Cache\CacheFactory;
@@ -26,14 +26,14 @@ echo "Retrieved: " . json_encode($user) . "\n";
 echo "Exists: " . ($arrayCache->has('user:123') ? 'Yes' : 'No') . "\n";
 
 // Remember pattern
-$expensive = $arrayCache->remember('expensive_calc', function() {
+$expensive = $arrayCache->remember('expensive_calc', function () {
     echo "Computing expensive calculation...\n";
     return 42 * 1337;
 }, 60);
 echo "Result: {$expensive}\n";
 
 // Second call uses cache
-$cached = $arrayCache->remember('expensive_calc', function() {
+$cached = $arrayCache->remember('expensive_calc', function () {
     echo "This won't be called!\n";
     return 0;
 }, 60);
@@ -186,7 +186,7 @@ try {
     echo "API status: {$cached['status']}\n";
 
     // Remember with database cache
-    $heavyQuery = $dbCache->remember('report:monthly', function() {
+    $heavyQuery = $dbCache->remember('report:monthly', function () {
         echo "Generating monthly report...\n";
         sleep(1); // Simulate heavy computation
         return ['total' => 15000, 'growth' => '15%'];
@@ -208,15 +208,15 @@ $cache = new FileCache();
 function getCachedLLMResponse(string $prompt, callable $llmCall, $cache): array
 {
     $cacheKey = 'llm:' . md5($prompt);
-    
-    return $cache->remember($cacheKey, function() use ($llmCall, $prompt) {
+
+    return $cache->remember($cacheKey, function () use ($llmCall, $prompt) {
         echo "Making LLM API call...\n";
         return $llmCall($prompt);
     }, 3600); // Cache for 1 hour
 }
 
 // Simulate LLM calls
-$mockLLM = function($prompt) {
+$mockLLM = function ($prompt) {
     return [
         'text' => "Response to: {$prompt}",
         'tokens' => 50,
@@ -249,42 +249,42 @@ function getTwoTierCached(string $key, callable $callback, $l1, $l2): mixed
         echo "✓ Hit L1 cache (memory)\n";
         return $l1->get($key);
     }
-    
+
     // Try L2 (slower)
     if ($l2->has($key)) {
         echo "✓ Hit L2 cache (file)\n";
         $value = $l2->get($key);
-        
+
         // Warm L1 cache
         $l1->set($key, $value, 60);
-        
+
         return $value;
     }
-    
+
     // Generate value
     echo "✗ Cache miss - generating value\n";
     $value = $callback();
-    
+
     // Store in both tiers
     $l1->set($key, $value, 60);
     $l2->set($key, $value, 3600);
-    
+
     return $value;
 }
 
 // First call - cache miss
-$data1 = getTwoTierCached('expensive:data', function() {
+$data1 = getTwoTierCached('expensive:data', function () {
     return ['computed' => true, 'value' => 42];
 }, $l1Cache, $l2Cache);
 
 // Second call - L1 hit
-$data2 = getTwoTierCached('expensive:data', function() {
+$data2 = getTwoTierCached('expensive:data', function () {
     return ['computed' => true, 'value' => 42];
 }, $l1Cache, $l2Cache);
 
 // Clear L1, third call - L2 hit
 $l1Cache->clear();
-$data3 = getTwoTierCached('expensive:data', function() {
+$data3 = getTwoTierCached('expensive:data', function () {
     return ['computed' => true, 'value' => 42];
 }, $l1Cache, $l2Cache);
 
@@ -357,4 +357,3 @@ echo "- Use Redis for distributed caching across instances\n";
 echo "- Cache embeddings (expensive to generate)\n";
 echo "- Cache tool/function results\n";
 echo "- Set longer TTL for deterministic responses\n";
-

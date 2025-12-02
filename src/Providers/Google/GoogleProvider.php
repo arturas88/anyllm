@@ -53,17 +53,23 @@ final class GoogleProvider extends AbstractProvider
         ?array $stop = null,
         array $options = [],
     ): TextResponse {
-        $response = $this->request('generateContent', "/models/{$model}:generateContent?key={$this->config->apiKey}", [
+        $payload = [
             'contents' => [
                 ['parts' => [['text' => $prompt]]],
             ],
-            'generationConfig' => array_filter([
-                'temperature' => $temperature,
-                'maxOutputTokens' => $maxTokens,
-                'stopSequences' => $stop,
-            ]),
-            ...$options,
-        ]);
+        ];
+
+        $generationConfig = array_filter([
+            'temperature' => $temperature,
+            'maxOutputTokens' => $maxTokens,
+            'stopSequences' => $stop,
+        ], fn($v) => $v !== null);
+
+        if (!empty($generationConfig)) {
+            $payload['generationConfig'] = $generationConfig;
+        }
+
+        $response = $this->request('generateContent', "/models/{$model}:generateContent?key={$this->config->apiKey}", array_merge($payload, $options));
 
         $text = $response['candidates'][0]['content']['parts'][0]['text'] ?? '';
 
@@ -101,15 +107,24 @@ final class GoogleProvider extends AbstractProvider
         ?string $toolChoice = null,
         array $options = [],
     ): ChatResponse {
-        $response = $this->request('generateContent', "/models/{$model}:generateContent?key={$this->config->apiKey}", [
+        $payload = [
             'contents' => $this->formatMessages($messages),
-            'generationConfig' => array_filter([
-                'temperature' => $temperature,
-                'maxOutputTokens' => $maxTokens,
-            ]),
-            'tools' => $tools ? $this->formatTools($tools) : null,
-            ...$options,
-        ]);
+        ];
+
+        $generationConfig = array_filter([
+            'temperature' => $temperature,
+            'maxOutputTokens' => $maxTokens,
+        ], fn($v) => $v !== null);
+
+        if (!empty($generationConfig)) {
+            $payload['generationConfig'] = $generationConfig;
+        }
+
+        if ($tools) {
+            $payload['tools'] = $this->formatTools($tools);
+        }
+
+        $response = $this->request('generateContent', "/models/{$model}:generateContent?key={$this->config->apiKey}", array_merge($payload, $options));
 
         $content = $response['candidates'][0]['content']['parts'][0]['text'] ?? '';
 
@@ -129,14 +144,20 @@ final class GoogleProvider extends AbstractProvider
     ): \Generator {
         $fullContent = '';
 
-        foreach ($this->stream('generateContent', "/models/{$model}:streamGenerateContent?key={$this->config->apiKey}", [
+        $payload = [
             'contents' => $this->formatMessages($messages),
-            'generationConfig' => array_filter([
-                'temperature' => $temperature,
-                'maxOutputTokens' => $maxTokens,
-            ]),
-            ...$options,
-        ]) as $chunk) {
+        ];
+
+        $generationConfig = array_filter([
+            'temperature' => $temperature,
+            'maxOutputTokens' => $maxTokens,
+        ], fn($v) => $v !== null);
+
+        if (!empty($generationConfig)) {
+            $payload['generationConfig'] = $generationConfig;
+        }
+
+        foreach ($this->stream('generateContent', "/models/{$model}:streamGenerateContent?key={$this->config->apiKey}", array_merge($payload, $options)) as $chunk) {
             $text = $chunk['candidates'][0]['content']['parts'][0]['text'] ?? '';
             $fullContent .= $text;
             yield $text;
@@ -181,7 +202,7 @@ final class GoogleProvider extends AbstractProvider
 
     protected function mapRequest(string $method, array $params): array
     {
-        return array_filter($params, fn ($v) => $v !== null);
+        return array_filter($params, fn($v) => $v !== null);
     }
 
     protected function mapResponse(string $method, array $response): array
@@ -236,4 +257,3 @@ final class GoogleProvider extends AbstractProvider
         return [['functionDeclarations' => $functionDeclarations]];
     }
 }
-

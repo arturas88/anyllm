@@ -6,7 +6,4 @@ namespace AnyLLM\Exceptions;
 
 use Exception;
 
-class AnyLLMException extends Exception
-{
-}
-
+class AnyLLMException extends Exception {}

@@ -14,7 +14,7 @@ use AnyLLM\Tools\Tool;
 
 /**
  * xAI Provider - Access to Grok models
- * 
+ *
  * xAI's API is OpenAI-compatible, making integration straightforward.
  */
 final class XAIProvider extends AbstractProvider
@@ -45,10 +45,15 @@ final class XAIProvider extends AbstractProvider
 
     protected function getDefaultHeaders(): array
     {
-        return array_merge([
-            'Authorization' => "Bearer {$this->config->apiKey}",
+        $headers = [
             'Content-Type' => 'application/json',
-        ], $this->config->headers);
+        ];
+
+        if ($this->config->apiKey !== null) {
+            $headers['Authorization'] = "Bearer {$this->config->apiKey}";
+        }
+
+        return array_merge($headers, $this->config->headers);
     }
 
     public function generateText(
@@ -216,7 +221,7 @@ final class XAIProvider extends AbstractProvider
 
     protected function mapRequest(string $method, array $params): array
     {
-        return array_filter($params, fn ($v) => $v !== null);
+        return array_filter($params, fn($v) => $v !== null);
     }
 
     protected function mapResponse(string $method, array $response): array
@@ -249,7 +254,7 @@ final class XAIProvider extends AbstractProvider
     private function formatMessages(array $messages): array
     {
         return array_map(
-            fn ($message) => $message instanceof Message
+            fn($message) => $message instanceof Message
                 ? $message->toProviderFormat('openai')
                 : $message,
             $messages
@@ -259,11 +264,10 @@ final class XAIProvider extends AbstractProvider
     private function formatTools(array $tools): array
     {
         return array_map(
-            fn ($tool) => $tool instanceof Tool
+            fn($tool) => $tool instanceof Tool
                 ? $tool->toProviderFormat('openai')
                 : $tool,
             $tools
         );
     }
 }
-

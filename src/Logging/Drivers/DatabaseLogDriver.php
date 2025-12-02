@@ -20,7 +20,7 @@ final class DatabaseLogDriver implements LogDriverInterface
 
         try {
             $data = $entry->toArray();
-            
+
             // Write to logs table
             $stmt = $this->pdo->prepare(
                 "INSERT INTO {$this->logsTable} 
@@ -116,11 +116,11 @@ final class DatabaseLogDriver implements LogDriverInterface
                 LIMIT :limit OFFSET :offset";
 
         $stmt = $this->pdo->prepare($sql);
-        
+
         foreach ($params as $key => $value) {
             $stmt->bindValue($key, $value);
         }
-        
+
         $stmt->bindValue('limit', $limit, \PDO::PARAM_INT);
         $stmt->bindValue('offset', $offset, \PDO::PARAM_INT);
         $stmt->execute();
@@ -235,7 +235,7 @@ final class DatabaseLogDriver implements LogDriverInterface
     private function writeUsage(LogEntry $entry): void
     {
         $data = $entry->toArray();
-        
+
         $stmt = $this->pdo->prepare(
             "INSERT INTO {$this->usageTable} 
              (provider, model, organization_id, team_id, user_id, request_id, environment,
@@ -266,4 +266,3 @@ final class DatabaseLogDriver implements LogDriverInterface
         return LogEntry::fromArray($row);
     }
 }
-

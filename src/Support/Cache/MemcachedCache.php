@@ -16,7 +16,7 @@ final class MemcachedCache implements CacheInterface
     public function get(string $key, mixed $default = null): mixed
     {
         $value = $this->memcached->get($this->prefixKey($key));
-        
+
         if ($this->memcached->getResultCode() === \Memcached::RES_NOTFOUND) {
             return $default;
         }
@@ -26,7 +26,7 @@ final class MemcachedCache implements CacheInterface
 
     public function set(string $key, mixed $value, ?int $ttl = null): bool
     {
-        $ttl = $ttl ?? $this->defaultTtl;
+        $ttl ??= $this->defaultTtl;
         $prefixedKey = $this->prefixKey($key);
 
         return $this->memcached->set($prefixedKey, $value, $ttl);
@@ -64,7 +64,7 @@ final class MemcachedCache implements CacheInterface
 
     public function setMultiple(array $values, ?int $ttl = null): bool
     {
-        $ttl = $ttl ?? $this->defaultTtl;
+        $ttl ??= $this->defaultTtl;
 
         $prefixedValues = [];
         foreach ($values as $key => $value) {
@@ -117,4 +117,3 @@ final class MemcachedCache implements CacheInterface
         return self::KEY_PREFIX . $key;
     }
 }
-

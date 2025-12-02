@@ -41,12 +41,15 @@ final class FakeProvider implements ProviderInterface
 
     public function willReturn(string $text, ?int $inputTokens = null, ?int $outputTokens = null): self
     {
+        $completionTokens = $outputTokens ?? (int) (strlen($text) / 4);
+        $promptTokens = $inputTokens ?? 10;
+
         $this->responses[] = TextResponse::fake([
             'text' => $text,
             'usage' => [
-                'prompt_tokens' => $inputTokens ?? 10,
-                'completion_tokens' => $outputTokens ?? strlen($text) / 4,
-                'total_tokens' => ($inputTokens ?? 10) + ($outputTokens ?? strlen($text) / 4),
+                'prompt_tokens' => $promptTokens,
+                'completion_tokens' => $completionTokens,
+                'total_tokens' => $promptTokens + $completionTokens,
             ],
         ]);
 
@@ -102,7 +105,23 @@ final class FakeProvider implements ProviderInterface
             'params' => compact('model', 'messages', 'temperature', 'maxTokens', 'tools', 'toolChoice', 'options'),
         ];
 
-        return $this->nextResponse() ?? ChatResponse::fake(['content' => 'Fake chat response']);
+        $response = $this->nextResponse();
+
+        // Convert TextResponse to ChatResponse if needed
+        if ($response instanceof TextResponse) {
+            return ChatResponse::fake([
+                'content' => $response->text,
+                'id' => $response->id,
+                'model' => $response->model,
+                'usage' => $response->usage?->toArray(),
+            ]);
+        }
+
+        if ($response instanceof ChatResponse) {
+            return $response;
+        }
+
+        return ChatResponse::fake(['content' => 'Fake chat response']);
     }
 
     public function streamChat(
@@ -149,7 +168,7 @@ final class FakeProvider implements ProviderInterface
     {
         $calls = array_filter(
             $this->recorded,
-            fn ($call) => $call['method'] === $method
+            fn($call) => $call['method'] === $method
         );
 
         if (empty($calls)) {
@@ -175,7 +194,7 @@ final class FakeProvider implements ProviderInterface
     {
         $count = count(array_filter(
             $this->recorded,
-            fn ($call) => $call['method'] === $method
+            fn($call) => $call['method'] === $method
         ));
 
         if ($count !== $times) {
@@ -208,4 +227,3 @@ final class FakeProvider implements ProviderInterface
         return $this->responses[$this->responseIndex++];
     }
 }
-

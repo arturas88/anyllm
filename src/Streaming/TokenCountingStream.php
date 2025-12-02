@@ -22,7 +22,7 @@ final class TokenCountingStream
         $this->model = $model;
 
         // Intercept chunks to count tokens
-        $this->controller->onChunk(function($content, $chunkNumber, $tokens) {
+        $this->controller->onChunk(function ($content, $chunkNumber, $tokens) {
             if ($tokens > 0) {
                 $this->totalTokens += $tokens;
             } else {
@@ -79,4 +79,3 @@ final class TokenCountingStream
         ];
     }
 }
-

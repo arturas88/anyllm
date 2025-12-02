@@ -30,4 +30,3 @@ final class WorkflowContext
         return $this->variables;
     }
 }
-

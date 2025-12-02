@@ -23,4 +23,3 @@ interface EmbeddingInterface
      */
     public function similarity(array $embedding1, array $embedding2): float;
 }
-

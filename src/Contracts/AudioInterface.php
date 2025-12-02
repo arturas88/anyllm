@@ -45,4 +45,3 @@ interface AudioInterface
         array $options = [],
     ): TranscriptionResponse;
 }
-

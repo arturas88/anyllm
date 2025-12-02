@@ -16,7 +16,7 @@ final readonly class ModelPricing
     {
         $inputCost = ($inputTokens / 1_000_000) * $this->inputPer1M;
         $outputCost = ($outputTokens / 1_000_000) * $this->outputPer1M;
-        
+
         $cachedCost = 0;
         if ($cachedTokens > 0 && $this->cachedInputPer1M !== null) {
             $cachedCost = ($cachedTokens / 1_000_000) * $this->cachedInputPer1M;
@@ -25,4 +25,3 @@ final readonly class ModelPricing
         return round($inputCost + $outputCost + $cachedCost, 6);
     }
 }
-

@@ -224,7 +224,33 @@ final class OpenAIProvider extends AbstractProvider implements
             ...$options,
         ]);
 
-        $content = $response['choices'][0]['message']['content'] ?? '{}';
+        // The response structure varies - sometimes content is in choices[0].message.content,
+        // sometimes it's at the root level (after mapping)
+        $message = $response['choices'][0]['message'] ?? $response;
+
+        // Check for refusal (OpenAI may refuse to generate content)
+        if (isset($message['refusal']) && $message['refusal'] !== null) {
+            throw new \AnyLLM\Exceptions\InvalidRequestException(
+                "Model refused to generate structured output: {$message['refusal']}"
+            );
+        }
+
+        // Try to get content from different possible locations
+        $content = $message['content']
+            ?? $response['content']
+            ?? $response['choices'][0]['message']['content']
+            ?? null;
+
+        // If content is null or empty, provide better error message
+        if ($content === null || $content === '') {
+            $finishReason = $message['finish_reason'] ?? $response['finish_reason'] ?? 'unknown';
+            throw new \AnyLLM\Exceptions\InvalidRequestException(
+                "OpenAI returned empty content. Finish reason: {$finishReason}. "
+                . "This may indicate: 1) Invalid API key, 2) Model doesn't support structured outputs, "
+                . "3) Schema validation error, or 4) Network issue. "
+                . "Response: " . json_encode($response)
+            );
+        }
 
         return StructuredResponse::fromArray([
             'content' => $content,
@@ -340,7 +366,7 @@ final class OpenAIProvider extends AbstractProvider implements
 
     protected function mapRequest(string $method, array $params): array
     {
-        return array_filter($params, fn ($v) => $v !== null);
+        return array_filter($params, fn($v) => $v !== null);
     }
 
     protected function mapResponse(string $method, array $response): array
@@ -373,7 +399,7 @@ final class OpenAIProvider extends AbstractProvider implements
     private function formatMessages(array $messages): array
     {
         return array_map(
-            fn ($message) => $message instanceof Message
+            fn($message) => $message instanceof Message
                 ? $message->toProviderFormat('openai')
                 : $message,
             $messages
@@ -383,7 +409,7 @@ final class OpenAIProvider extends AbstractProvider implements
     private function formatTools(array $tools): array
     {
         return array_map(
-            fn ($tool) => $tool instanceof Tool
+            fn($tool) => $tool instanceof Tool
                 ? $tool->toProviderFormat('openai')
                 : $tool,
             $tools
@@ -394,7 +420,7 @@ final class OpenAIProvider extends AbstractProvider implements
     {
         $inputs = is_array($input) ? $input : [$input];
 
-        $response = $this->request('embed', '/v1/embeddings', [
+        $response = $this->request('embed', '/embeddings', [
             'model' => $model,
             'input' => $inputs,
         ]);
@@ -422,4 +448,3 @@ final class OpenAIProvider extends AbstractProvider implements
         return \AnyLLM\Support\VectorMath::cosineSimilarity($embedding1, $embedding2);
     }
 }
-

@@ -112,7 +112,7 @@ final class SchemaBuilder
             'properties' => $this->properties ?: null,
             'required' => $this->required ?: null,
             'additionalProperties' => $this->type === 'object' ? false : null,
-        ], fn ($v) => $v !== null);
+        ], fn($v) => $v !== null);
     }
 
     public function toSchema(): Schema
@@ -120,4 +120,3 @@ final class SchemaBuilder
         return Schema::fromJsonSchema($this->build());
     }
 }
-

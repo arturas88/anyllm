@@ -15,10 +15,10 @@ use AnyLLM\Tools\Tool;
 
 /**
  * OpenRouter Provider - Access to 100+ models through a unified interface
- * 
+ *
  * OpenRouter normalizes the schema across models and providers using an
  * OpenAI-compatible API with additional routing features.
- * 
+ *
  * @see https://openrouter.ai/docs/api/reference/overview
  */
 final class OpenRouterProvider extends AbstractProvider
@@ -151,7 +151,7 @@ final class OpenRouterProvider extends AbstractProvider
         $supportedParams = [
             'stop', 'seed', 'top_p', 'top_k', 'frequency_penalty',
             'presence_penalty', 'repetition_penalty', 'logit_bias',
-            'top_logprobs', 'min_p', 'top_a', 'prediction'
+            'top_logprobs', 'min_p', 'top_a', 'prediction',
         ];
 
         foreach ($supportedParams as $param) {
@@ -163,7 +163,7 @@ final class OpenRouterProvider extends AbstractProvider
         $response = $this->request('chat.create', '/chat/completions', array_merge(
             $requestData,
             array_diff_key($options, array_flip([
-                'transforms', 'models', 'route', 'provider', ...$supportedParams
+                'transforms', 'models', 'route', 'provider', ...$supportedParams,
             ]))
         ));
 
@@ -299,7 +299,7 @@ final class OpenRouterProvider extends AbstractProvider
 
     /**
      * Get generation statistics including native token counts and cost.
-     * 
+     *
      * @see https://openrouter.ai/docs/api-reference/get-a-generation
      */
     public function getGenerationStats(string $generationId): array
@@ -309,7 +309,7 @@ final class OpenRouterProvider extends AbstractProvider
 
     protected function mapRequest(string $method, array $params): array
     {
-        return array_filter($params, fn ($v) => $v !== null);
+        return array_filter($params, fn($v) => $v !== null);
     }
 
     protected function mapResponse(string $method, array $response): array
@@ -345,7 +345,7 @@ final class OpenRouterProvider extends AbstractProvider
     private function formatMessages(array $messages): array
     {
         return array_map(
-            fn ($message) => $message instanceof Message
+            fn($message) => $message instanceof Message
                 ? $message->toProviderFormat('openai') // OpenRouter uses OpenAI format
                 : $message,
             $messages
@@ -355,11 +355,10 @@ final class OpenRouterProvider extends AbstractProvider
     private function formatTools(array $tools): array
     {
         return array_map(
-            fn ($tool) => $tool instanceof Tool
+            fn($tool) => $tool instanceof Tool
                 ? $tool->toProviderFormat('openai') // OpenRouter uses OpenAI format
                 : $tool,
             $tools
         );
     }
 }
-

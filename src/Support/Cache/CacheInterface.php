@@ -73,4 +73,3 @@ interface CacheInterface
      */
     public function decrement(string $key, int $value = 1): int|false;
 }
-

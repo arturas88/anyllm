@@ -195,6 +195,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.1] - 2025-12-01
+
+### Added
+- **TROUBLESHOOTING.md** - Comprehensive troubleshooting guide for common issues
+- **setup.sh** - Automated setup script for quick project initialization
+- **test-setup.php** - Test setup helper script
+- **bootstrap.php** - Bootstrap file for better autoloading
+- **.php-cs-fixer.dist.php** - PHP CS Fixer configuration
+- **Enhanced README** - Improved installation instructions with step-by-step guide
+- **Database Schema Documentation** - Added SQLite support notes and compatibility information
+- **vlucas/phpdotenv** - Added to dev dependencies for environment variable management
+
+### Changed
+- **README.md** - Enhanced with:
+  - Prerequisites section
+  - Step-by-step installation guide
+  - Better quick start examples
+  - Improved code examples with comments
+  - More detailed usage instructions
+- **DATABASE_SCHEMA.md** - Added:
+  - SQLite compatibility notes
+  - Database driver comparison
+  - SQLite-specific syntax adjustments
+- **FakeProvider** - Improved:
+  - Better token calculation logic
+  - Automatic TextResponse to ChatResponse conversion
+  - More accurate fake response handling
+- **All Examples** - Updated with:
+  - Better error handling
+  - Improved code comments
+  - More consistent patterns
+  - Enhanced documentation
+- **Conversation Management** - Enhanced:
+  - Improved conversation repository implementations
+  - Better error handling
+  - More robust file-based storage
+- **Structured Output** - Improved:
+  - Better schema generation
+  - Enhanced type handling
+  - More robust validation
+- **Provider Implementations** - Refined:
+  - Better error messages
+  - Improved request handling
+  - Enhanced response parsing
+- **Middleware System** - Enhanced:
+  - Better context handling
+  - Improved error propagation
+- **Metrics Dashboard** - Improved:
+  - Better HTML rendering
+  - Enhanced data visualization
+- **Cache Implementations** - Refined:
+  - Better error handling
+  - Improved FileCache implementation
+  - Enhanced Redis/Memcached support
+- **Rate Limiting** - Improved:
+  - Better distributed rate limiting
+  - Enhanced error handling
+- **Token Counter** - Enhanced:
+  - More accurate token estimation
+  - Better truncation logic
+- **Prompt Templates** - Improved:
+  - Better variable interpolation
+  - Enhanced validation
+- **Code Quality** - Across the codebase:
+  - Improved type hints
+  - Better error handling
+  - Enhanced documentation
+  - More consistent code style
+
+### Fixed
+- Fixed token calculation in FakeProvider to use proper integer casting
+- Fixed TextResponse to ChatResponse conversion in FakeProvider
+- Improved error handling across all providers
+- Fixed various edge cases in conversation management
+- Improved database migration compatibility
+- Fixed cache key handling in various cache drivers
+- Enhanced retry logic for better reliability
+
+### Removed
+- **GETTING_STARTED.md** - Content merged into README.md for better discoverability
+
+### Security
+- Improved API key handling
+- Enhanced input validation
+- Better error message sanitization
+
+---
+
 ## [Unreleased]
 
 ### Planned for Future Releases
@@ -209,6 +297,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **1.0.1** (2025-12-01) - Documentation improvements, bug fixes, and code quality enhancements
 - **1.0.0** (2025-12-01) - Initial production-ready release
 
 ---

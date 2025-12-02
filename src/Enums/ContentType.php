@@ -11,4 +11,3 @@ enum ContentType: string
     case File = 'file';
     case Audio = 'audio';
 }
-

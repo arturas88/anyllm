@@ -21,9 +21,11 @@ final class SimpleTest extends TestCase
         );
 
         $this->assertEquals('Hello, World!', $response->text);
-        
-        $provider->assertCalled('generateText', fn($params) => 
-            $params['prompt'] === 'Say hello'
+
+        $provider->assertCalled(
+            'generateText',
+            fn($params)
+            => $params['prompt'] === 'Say hello'
         );
     }
 
@@ -38,7 +40,7 @@ final class SimpleTest extends TestCase
         );
 
         $this->assertStringContainsString('assistant', $response->content);
-        
+
         $provider->assertCalledTimes('chat', 1);
     }
 
@@ -51,4 +53,3 @@ final class SimpleTest extends TestCase
         $this->assertTrue($provider->supports('tools'));
     }
 }
-

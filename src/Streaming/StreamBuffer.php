@@ -99,8 +99,8 @@ final class StreamBuffer
     public function getRecent(float $seconds): array
     {
         $threshold = microtime(true) - $seconds;
-        
-        return array_filter($this->buffer, function($chunk) use ($threshold) {
+
+        return array_filter($this->buffer, function ($chunk) use ($threshold) {
             return $chunk['timestamp'] >= $threshold;
         });
     }
@@ -113,4 +113,3 @@ final class StreamBuffer
         $this->buffer = [];
     }
 }
-

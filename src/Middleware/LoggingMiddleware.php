@@ -22,9 +22,9 @@ final class LoggingMiddleware implements MiddlewareInterface
 
         try {
             $responseContext = $next($context);
-            
+
             $this->log($context, $responseContext, $startTime);
-            
+
             return $responseContext;
         } catch (\Throwable $e) {
             $this->logError($context, $e, $startTime);
@@ -82,4 +82,3 @@ final class LoggingMiddleware implements MiddlewareInterface
         $this->logger->write($entry);
     }
 }
-

@@ -16,7 +16,7 @@ use AnyLLM\Tools\Tool;
 
 /**
  * Mistral AI Provider with OCR support
- * 
+ *
  * Mistral's API is OpenAI-compatible with additional features
  * including OCR capabilities through their vision models.
  */
@@ -222,14 +222,40 @@ final class MistralProvider extends AbstractProvider implements ImageGenerationI
         ?string $prompt = null,
         array $options = [],
     ): array {
-        $imageUrl = is_string($image) ? $image : '';
-        
+        // Handle image URL or base64 data
+        $imageData = '';
+        $mimeType = 'image/jpeg';
+
+        if (is_string($image)) {
+            // Check if it's already a data URI (base64)
+            if (str_starts_with($image, 'data:')) {
+                $imageData = $image;
+            } elseif (filter_var($image, FILTER_VALIDATE_URL)) {
+                // Fetch image from URL and convert to base64
+                $imageContent = $this->fetchImageFromUrl($image);
+
+                // Determine MIME type from URL or content
+                $mimeType = $this->detectMimeType($image, $imageContent);
+                $base64 = base64_encode($imageContent);
+                $imageData = "data:{$mimeType};base64,{$base64}";
+            } elseif (file_exists($image)) {
+                // Local file path
+                $imageContent = file_get_contents($image);
+                $mimeType = mime_content_type($image) ?: 'image/jpeg';
+                $base64 = base64_encode($imageContent);
+                $imageData = "data:{$mimeType};base64,{$base64}";
+            } else {
+                // Assume it's already base64 encoded
+                $imageData = $image;
+            }
+        }
+
         $messages = [
             [
                 'role' => 'user',
                 'content' => [
                     ['type' => 'text', 'text' => $prompt ?? 'Extract all text from this image.'],
-                    ['type' => 'image_url', 'image_url' => ['url' => $imageUrl]],
+                    ['type' => 'image_url', 'image_url' => ['url' => $imageData]],
                 ],
             ],
         ];
@@ -244,6 +270,91 @@ final class MistralProvider extends AbstractProvider implements ImageGenerationI
             'text' => $response->content,
             'usage' => $response->usage?->toArray(),
         ];
+    }
+
+    /**
+     * Fetch image content from URL using cURL or file_get_contents.
+     */
+    private function fetchImageFromUrl(string $url): string
+    {
+        // Try cURL first if available (more reliable)
+        if (function_exists('curl_init')) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_TIMEOUT => 30,
+                CURLOPT_USERAGENT => 'AnyLLM/1.0',
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_HTTPHEADER => [
+                    'Accept: image/*',
+                ],
+            ]);
+
+            $content = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            curl_close($ch);
+
+            if ($content === false || $httpCode >= 400) {
+                $errorMsg = $error ?: "HTTP {$httpCode}";
+                throw new \AnyLLM\Exceptions\InvalidRequestException(
+                    "File could not be fetched from url '{$url}': {$errorMsg}"
+                );
+            }
+
+            return $content;
+        }
+
+        // Fallback to file_get_contents
+        $context = stream_context_create([
+            'http' => [
+                'timeout' => 30,
+                'user_agent' => 'AnyLLM/1.0',
+                'follow_location' => 1,
+                'max_redirects' => 5,
+            ],
+        ]);
+
+        $content = @file_get_contents($url, false, $context);
+        if ($content === false) {
+            $error = error_get_last();
+            $errorMsg = $error ? $error['message'] : 'Unknown error';
+            throw new \AnyLLM\Exceptions\InvalidRequestException(
+                "File could not be fetched from url '{$url}': {$errorMsg}"
+            );
+        }
+
+        return $content;
+    }
+
+    /**
+     * Detect MIME type from URL extension or content.
+     */
+    private function detectMimeType(string $url, string $content): string
+    {
+        // Try to detect from content first if finfo is available
+        if (function_exists('finfo_open')) {
+            $finfo = @finfo_open(FILEINFO_MIME_TYPE);
+            if ($finfo) {
+                $detected = @finfo_buffer($finfo, $content);
+                if ($detected && str_starts_with($detected, 'image/')) {
+                    return $detected;
+                }
+            }
+        }
+
+        // Fallback to URL extension
+        $path = parse_url($url, PHP_URL_PATH);
+        $extension = $path ? strtolower(pathinfo($path, PATHINFO_EXTENSION)) : '';
+        return match ($extension) {
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'pdf' => 'application/pdf',
+            default => 'image/jpeg',
+        };
     }
 
     public function generateImage(
@@ -281,7 +392,7 @@ final class MistralProvider extends AbstractProvider implements ImageGenerationI
 
     protected function mapRequest(string $method, array $params): array
     {
-        return array_filter($params, fn ($v) => $v !== null);
+        return array_filter($params, fn($v) => $v !== null);
     }
 
     protected function mapResponse(string $method, array $response): array
@@ -314,7 +425,7 @@ final class MistralProvider extends AbstractProvider implements ImageGenerationI
     private function formatMessages(array $messages): array
     {
         return array_map(
-            fn ($message) => $message instanceof Message
+            fn($message) => $message instanceof Message
                 ? $message->toProviderFormat('openai')
                 : $message,
             $messages
@@ -324,11 +435,10 @@ final class MistralProvider extends AbstractProvider implements ImageGenerationI
     private function formatTools(array $tools): array
     {
         return array_map(
-            fn ($tool) => $tool instanceof Tool
+            fn($tool) => $tool instanceof Tool
                 ? $tool->toProviderFormat('openai')
                 : $tool,
             $tools
         );
     }
 }
-

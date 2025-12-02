@@ -1,6 +1,6 @@
 <?php
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../bootstrap.php';
 
 use AnyLLM\Metrics\MetricsCollector;
 use AnyLLM\Metrics\MetricsDashboard;
@@ -18,7 +18,7 @@ $metrics = new MetricsCollector();
 for ($i = 0; $i < 10; $i++) {
     $provider = $i % 2 === 0 ? 'openai' : 'anthropic';
     $model = $i % 2 === 0 ? 'gpt-4o' : 'claude-opus-4-5';
-    
+
     $metrics->recordRequest($provider, $model, 'chat');
     $metrics->recordLatency($provider, $model, rand(500, 2000));
     $metrics->recordTokens($provider, $model, rand(50, 200));
@@ -57,14 +57,18 @@ foreach ($latencies as $latency) {
 
 $latencyMetrics = $metrics->getMetric('latency.all');
 
-echo "Latency Statistics:\n";
-echo "- Count: {$latencyMetrics['count']}\n";
-echo "- Average: " . round($latencyMetrics['avg'], 2) . "ms\n";
-echo "- Min: {$latencyMetrics['min']}ms\n";
-echo "- Max: {$latencyMetrics['max']}ms\n";
-echo "- P50: " . round($latencyMetrics['p50'], 2) . "ms\n";
-echo "- P95: " . round($latencyMetrics['p95'], 2) . "ms\n";
-echo "- P99: " . round($latencyMetrics['p99'], 2) . "ms\n\n";
+if ($latencyMetrics === null) {
+    echo "No latency metrics recorded.\n\n";
+} else {
+    echo "Latency Statistics:\n";
+    echo "- Count: {$latencyMetrics['count']}\n";
+    echo "- Average: " . round($latencyMetrics['avg'] ?? 0, 2) . "ms\n";
+    echo "- Min: " . ($latencyMetrics['min'] ?? 0) . "ms\n";
+    echo "- Max: " . ($latencyMetrics['max'] ?? 0) . "ms\n";
+    echo "- P50: " . round($latencyMetrics['p50'] ?? 0, 2) . "ms\n";
+    echo "- P95: " . round($latencyMetrics['p95'] ?? 0, 2) . "ms\n";
+    echo "- P99: " . round($latencyMetrics['p99'] ?? 0, 2) . "ms\n\n";
+}
 
 // =============================================
 // Example 3: Timers
@@ -122,17 +126,17 @@ $metrics = new MetricsCollector();
 for ($i = 0; $i < 100; $i++) {
     $providers = ['openai', 'anthropic', 'google'];
     $provider = $providers[array_rand($providers)];
-    
+
     $metrics->recordRequest($provider, 'test-model', 'chat');
     $metrics->recordLatency($provider, 'test-model', rand(200, 3000));
     $metrics->recordTokens($provider, 'test-model', rand(50, 500));
     $metrics->recordCost($provider, 'test-model', rand(1, 50) / 1000);
-    
+
     // Random errors (5% rate)
     if (rand(1, 20) === 1) {
         $metrics->recordError($provider, rand(0, 1) ? 'rate_limit' : 'auth');
     }
-    
+
     // Cache hits/misses (80% hit rate)
     $metrics->recordCacheHit(rand(1, 10) <= 8);
 }
@@ -173,23 +177,24 @@ echo "=== 8. Real-Time Monitoring ===\n\n";
 
 $metrics = new MetricsCollector();
 
-function simulateTraffic($metrics): void {
+function simulateTraffic($metrics): void
+{
     static $requestCount = 0;
-    
+
     for ($i = 0; $i < 5; $i++) {
         $requestCount++;
-        
+
         $providers = ['openai', 'anthropic'];
         $provider = $providers[array_rand($providers)];
-        
+
         $metrics->startTimer('request');
         usleep(rand(100000, 300000)); // Simulate request
         $duration = $metrics->stopTimer('request');
-        
+
         $metrics->recordRequest($provider, 'test-model', 'chat');
         $metrics->recordLatency($provider, 'test-model', $duration);
         $metrics->recordTokens($provider, 'test-model', rand(50, 200));
-        
+
         // Occasionally record errors
         if (rand(1, 10) === 1) {
             $metrics->recordError($provider, 'timeout');
@@ -201,13 +206,13 @@ echo "Simulating traffic (5 second intervals)...\n\n";
 
 for ($iteration = 1; $iteration <= 3; $iteration++) {
     simulateTraffic($metrics);
-    
+
     echo "Iteration {$iteration}:\n";
     $currentMetrics = $metrics->getMetrics();
     echo "- Requests: " . ($currentMetrics['requests.total']['value'] ?? 0) . "\n";
     echo "- Errors: " . ($currentMetrics['errors.total']['value'] ?? 0) . "\n";
     echo "- Tokens: " . ($currentMetrics['tokens.total']['value'] ?? 0) . "\n\n";
-    
+
     sleep(1);
 }
 
@@ -270,4 +275,3 @@ echo "- Cache hit rate monitoring\n";
 echo "- Cost optimization\n";
 echo "- SLA compliance\n";
 echo "- Capacity planning\n";
-

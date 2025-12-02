@@ -1,6 +1,6 @@
 <?php
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../bootstrap.php';
 
 use AnyLLM\AnyLLM;
 use AnyLLM\Config\ConfigValidator;
@@ -15,7 +15,7 @@ use AnyLLM\Support\TokenCounter;
 // =============================================
 echo "=== Retry Logic Demo ===\n\n";
 
-$llm = AnyLLM::provider(Provider::OPENAI)
+$llm = AnyLLM::provider(Provider::OpenAI)
     ->model('gpt-4')
     ->apiKey(getenv('OPENAI_API_KEY'))
     ->build();
@@ -29,18 +29,24 @@ $llm->withRetry(
 
 // This will automatically retry on rate limits and 5xx errors
 try {
-    $response = $llm->chat([
-        new UserMessage('Hello!'),
-    ]);
-    echo "Response: {$response->content()}\n\n";
+    $response = $llm->chat(
+        model: 'gpt-4',
+        messages: [
+            new UserMessage('Hello!'),
+        ]
+    );
+    echo "Response: {$response->content}\n\n";
 } catch (\Exception $e) {
     echo "Failed after retries: {$e->getMessage()}\n\n";
 }
 
 // Disable retry for specific calls
-$response = $llm->withoutRetry()->chat([
-    new UserMessage('No retry for this one'),
-]);
+$response = $llm->withoutRetry()->chat(
+    model: 'gpt-4',
+    messages: [
+        new UserMessage('No retry for this one'),
+    ]
+);
 
 // =============================================
 // Quick Win #2: Token Counter
@@ -112,9 +118,9 @@ echo "=== Prompt Templates Demo ===\n\n";
 
 // Create a custom template
 $template = PromptTemplate::make(
-    "You are a {{role}}. Your task is to {{task}}.\n\n" .
-    "Input: {{input}}\n\n" .
-    "Response:"
+    "You are a {{role}}. Your task is to {{task}}.\n\n"
+    . "Input: {{input}}\n\n"
+    . "Response:"
 );
 
 $prompt = $template
@@ -186,7 +192,10 @@ echo "Expensive operation result: " . json_encode($expensiveData) . "\n";
 // Cache LLM responses
 $cacheKey = FileCache::key('llm', 'openai', 'gpt-4', 'What is PHP?');
 $response = $cache->remember($cacheKey, function () use ($llm) {
-    return $llm->chat([new UserMessage('What is PHP?')])->content();
+    return $llm->chat(
+        model: 'gpt-4',
+        messages: [new UserMessage('What is PHP?')]
+    )->content;
 }, 3600);
 
 echo "LLM response (cached): " . substr($response, 0, 50) . "...\n";
@@ -213,23 +222,26 @@ function analyzeSentiment(string $text, $llm, FileCache $cache): string
 {
     // Generate cache key
     $cacheKey = FileCache::key('sentiment', md5($text));
-    
+
     // Try to get from cache
     return $cache->remember($cacheKey, function () use ($text, $llm) {
         // Estimate tokens
         $tokens = TokenCounter::estimate($text);
         echo "Processing text with ~{$tokens} tokens...\n";
-        
+
         // Create prompt from template
         $prompt = PromptTemplate::sentiment()
             ->with('text', $text)
             ->render();
-        
+
         // Call LLM with retry enabled
         $response = $llm->withRetry(maxRetries: 3)
-            ->chat([new UserMessage($prompt)]);
-        
-        return trim($response->content());
+            ->chat(
+                model: 'gpt-4',
+                messages: [new UserMessage($prompt)]
+            );
+
+        return trim($response->content);
     }, 3600);
 }
 
@@ -242,4 +254,3 @@ $sentiment = analyzeSentiment(
 echo "Sentiment: {$sentiment}\n\n";
 
 echo "=== All Quick Wins Demonstrated Successfully! ===\n";
-

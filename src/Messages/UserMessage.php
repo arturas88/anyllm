@@ -5,15 +5,36 @@ declare(strict_types=1);
 namespace AnyLLM\Messages;
 
 use AnyLLM\Enums\Role;
+use AnyLLM\Messages\Content\Content;
 use AnyLLM\Messages\Content\ImageContent;
 use AnyLLM\Messages\Content\FileContent;
 use AnyLLM\Messages\Content\TextContent;
 
 final class UserMessage extends Message
 {
+    public function __construct(
+        array|string $content,
+        ?string $name = null,
+    ) {
+        parent::__construct(Role::User, $content, $name);
+    }
+
     protected static function getRole(): Role
     {
         return Role::User;
+    }
+
+    public static function create(string $content): static
+    {
+        return new static($content);
+    }
+
+    /**
+     * @param array<Content|string> $content
+     */
+    public static function withContent(array $content): static
+    {
+        return new static($content);
     }
 
     public static function withImage(
@@ -48,4 +69,3 @@ final class UserMessage extends Message
         return static::withContent($content);
     }
 }
-

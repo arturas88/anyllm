@@ -66,7 +66,7 @@ final class ResponseContext
     {
         return [
             'request' => $this->request->toArray(),
-            'response' => $this->response instanceof Response 
+            'response' => $this->response instanceof Response
                 ? get_class($this->response)
                 : gettype($this->response),
             'error' => $this->error,
@@ -76,4 +76,3 @@ final class ResponseContext
         ];
     }
 }
-

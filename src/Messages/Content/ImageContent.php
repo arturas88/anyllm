@@ -86,4 +86,3 @@ final readonly class ImageContent implements Content
         ];
     }
 }
-

@@ -33,7 +33,7 @@ final class ChatResponse extends Response
         $toolCalls = [];
         if (isset($data['tool_calls']) && is_array($data['tool_calls'])) {
             $toolCalls = array_map(
-                fn ($tc) => ToolCall::fromArray($tc),
+                fn($tc) => ToolCall::fromArray($tc),
                 $data['tool_calls']
             );
         }
@@ -44,8 +44,8 @@ final class ChatResponse extends Response
             toolCalls: $toolCalls,
             id: $data['id'] ?? null,
             model: $data['model'] ?? null,
-            finishReason: isset($data['finish_reason']) 
-                ? FinishReason::tryFrom($data['finish_reason']) 
+            finishReason: isset($data['finish_reason'])
+                ? FinishReason::tryFrom($data['finish_reason'])
                 : null,
             usage: isset($data['usage']) ? Usage::fromArray($data['usage']) : null,
             raw: $data,
@@ -78,9 +78,8 @@ final class ChatResponse extends Response
         return [
             ...parent::toArray(),
             'content' => $this->content,
-            'tool_calls' => array_map(fn ($tc) => $tc->toArray(), $this->toolCalls),
+            'tool_calls' => array_map(fn($tc) => $tc->toArray(), $this->toolCalls),
             'finish_reason' => $this->finishReason?->value,
         ];
     }
 }
-

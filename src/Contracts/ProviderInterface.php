@@ -84,4 +84,3 @@ interface ProviderInterface
 
     public function getHttpClient(): HttpClientInterface;
 }
-

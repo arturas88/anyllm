@@ -12,7 +12,7 @@ final class StreamController
     private array $completeCallbacks = [];
     private array $errorCallbacks = [];
     private array $progressCallbacks = [];
-    
+
     private int $chunksProcessed = 0;
     private int $totalTokens = 0;
     private string $accumulatedContent = '';
@@ -207,4 +207,3 @@ final class StreamController
         $this->startTime = microtime(true);
     }
 }
-

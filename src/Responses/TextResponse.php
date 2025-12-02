@@ -26,8 +26,8 @@ final class TextResponse extends Response
             text: $data['text'] ?? $data['content'] ?? '',
             id: $data['id'] ?? null,
             model: $data['model'] ?? null,
-            finishReason: isset($data['finish_reason']) 
-                ? FinishReason::tryFrom($data['finish_reason']) 
+            finishReason: isset($data['finish_reason'])
+                ? FinishReason::tryFrom($data['finish_reason'])
                 : null,
             usage: isset($data['usage']) ? Usage::fromArray($data['usage']) : null,
             raw: $data,
@@ -57,4 +57,3 @@ final class TextResponse extends Response
         ];
     }
 }
-
