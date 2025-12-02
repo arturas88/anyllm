@@ -10,6 +10,8 @@ use AnyLLM\Responses\ChatResponse;
 use AnyLLM\Responses\StructuredResponse;
 use AnyLLM\Responses\TextResponse;
 use AnyLLM\StructuredOutput\Schema;
+use GuzzleHttp\Promise\PromiseInterface;
+use GuzzleHttp\Promise\Promise;
 
 final class FakeProvider implements ProviderInterface
 {
@@ -122,6 +124,58 @@ final class FakeProvider implements ProviderInterface
         }
 
         return ChatResponse::fake(['content' => 'Fake chat response']);
+    }
+
+    public function generateTextAsync(
+        string $model,
+        string $prompt,
+        ?float $temperature = null,
+        ?int $maxTokens = null,
+        ?array $stop = null,
+        array $options = [],
+    ): PromiseInterface {
+        $this->recorded[] = [
+            'method' => 'generateTextAsync',
+            'params' => compact('model', 'prompt', 'temperature', 'maxTokens', 'stop', 'options'),
+        ];
+
+        $response = $this->nextResponse() ?? TextResponse::fake(['text' => 'Fake async response']);
+        
+        return Promise::promiseFor($response);
+    }
+
+    public function chatAsync(
+        string $model,
+        array $messages,
+        ?float $temperature = null,
+        ?int $maxTokens = null,
+        ?array $tools = null,
+        ?string $toolChoice = null,
+        array $options = [],
+    ): PromiseInterface {
+        $this->recorded[] = [
+            'method' => 'chatAsync',
+            'params' => compact('model', 'messages', 'temperature', 'maxTokens', 'tools', 'toolChoice', 'options'),
+        ];
+
+        $response = $this->nextResponse();
+
+        // Convert TextResponse to ChatResponse if needed
+        if ($response instanceof TextResponse) {
+            $chatResponse = ChatResponse::fake([
+                'content' => $response->text,
+                'id' => $response->id,
+                'model' => $response->model,
+                'usage' => $response->usage?->toArray(),
+            ]);
+            return Promise::promiseFor($chatResponse);
+        }
+
+        if ($response instanceof ChatResponse) {
+            return Promise::promiseFor($response);
+        }
+
+        return Promise::promiseFor(ChatResponse::fake(['content' => 'Fake async chat response']));
     }
 
     public function streamChat(
