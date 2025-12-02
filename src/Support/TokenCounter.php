@@ -29,6 +29,9 @@ final class TokenCounter
 
         // Remove extra whitespace
         $text = preg_replace('/\s+/', ' ', $text);
+        if ($text === null) {
+            $text = '';
+        }
 
         // Count characters
         $chars = mb_strlen($text);

@@ -10,6 +10,7 @@ use AnyLLM\Contracts\ProviderInterface;
 use AnyLLM\Http\HttpClient;
 use AnyLLM\Http\HttpClientFactory;
 use AnyLLM\Http\RetryHandler;
+use AnyLLM\Messages\UserMessage;
 use AnyLLM\Responses\ChatResponse;
 use AnyLLM\Responses\TextResponse;
 use GuzzleHttp\Promise\PromiseInterface;
@@ -35,9 +36,11 @@ abstract class AbstractProvider implements ProviderInterface
         }
 
         // Enable retry by default
+        $retryMaxAttempts = is_int($config->options['retry_max_attempts'] ?? null) ? $config->options['retry_max_attempts'] : 3;
+        $retryInitialDelay = is_int($config->options['retry_initial_delay'] ?? null) ? $config->options['retry_initial_delay'] : 1000;
         $this->retryHandler = new RetryHandler(
-            maxRetries: $config->options['retry_max_attempts'] ?? 3,
-            initialDelayMs: $config->options['retry_initial_delay'] ?? 1000,
+            maxRetries: $retryMaxAttempts,
+            initialDelayMs: $retryInitialDelay,
         );
     }
 
@@ -61,20 +64,41 @@ abstract class AbstractProvider implements ProviderInterface
 
     abstract protected function getBaseUri(): string;
 
+    /**
+     * @return array<string, string>
+     */
     abstract protected function getDefaultHeaders(): array;
 
+    /**
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
     abstract protected function mapRequest(string $method, array $params): array;
 
+    /**
+     * @param array<string, mixed> $response
+     * @return array<string, mixed>
+     */
     abstract protected function mapResponse(string $method, array $response): array;
 
+    /**
+     * @param array<string, mixed> $chunk
+     */
     abstract protected function mapStreamChunk(string $method, array $chunk): mixed;
 
+    /**
+     * @return array<string>
+     */
     public function listModels(): array
     {
         // Default implementation - providers can override
         return [];
     }
 
+    /**
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
     protected function request(
         string $method,
         string $endpoint,
@@ -91,6 +115,10 @@ abstract class AbstractProvider implements ProviderInterface
         return $this->mapResponse($method, $response);
     }
 
+    /**
+     * @param array<string, mixed> $params
+     * @return \Generator<int, mixed>
+     */
     protected function stream(
         string $method,
         string $endpoint,
@@ -114,9 +142,15 @@ abstract class AbstractProvider implements ProviderInterface
      */
     protected function getDefaultModel(): ?string
     {
-        return $this->config->options['default_model'] ?? null;
+        $model = $this->config->options['default_model'] ?? null;
+        return is_string($model) ? $model : null;
     }
 
+    /**
+     * @param array<string>|null $stop
+     * @param array<string, mixed> $options
+     * @return PromiseInterface<TextResponse>
+     */
     public function generateTextAsync(
         string $model,
         string $prompt,
@@ -127,7 +161,7 @@ abstract class AbstractProvider implements ProviderInterface
     ): PromiseInterface {
         return $this->chatAsync(
             model: $model,
-            messages: [['role' => 'user', 'content' => $prompt]],
+            messages: [UserMessage::create($prompt)],
             temperature: $temperature,
             maxTokens: $maxTokens,
             options: $options,
@@ -142,6 +176,12 @@ abstract class AbstractProvider implements ProviderInterface
         });
     }
 
+    /**
+     * @param array<\AnyLLM\Messages\Message> $messages
+     * @param array<\AnyLLM\Tools\Tool>|null $tools
+     * @param array<string, mixed> $options
+     * @return PromiseInterface<ChatResponse>
+     */
     public function chatAsync(
         string $model,
         array $messages,
@@ -166,7 +206,7 @@ abstract class AbstractProvider implements ProviderInterface
         $endpoint = $this->getChatEndpoint();
 
         return $this->http->postAsync($endpoint, $mappedRequest)
-            ->then(function (array $response) {
+            ->then(function (array $response): ChatResponse {
                 $mappedResponse = $this->mapResponse('chat.create', $response);
                 return ChatResponse::fromArray($mappedResponse);
             });

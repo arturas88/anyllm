@@ -12,6 +12,7 @@ final class ProviderBuilder
     private ?string $apiKey = null;
     private ?string $baseUri = null;
     private ?string $model = null;
+    /** @var array<string, mixed> */
     private array $config = [];
 
     public function __construct(
@@ -36,6 +37,9 @@ final class ProviderBuilder
         return $this;
     }
 
+    /**
+     * @param array<string, mixed> $config
+     */
     public function config(array $config): self
     {
         $this->config = array_merge($this->config, $config);

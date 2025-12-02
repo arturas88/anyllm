@@ -50,6 +50,9 @@ final class FileCache
         }
 
         $json = file_get_contents($path);
+        if ($json === false) {
+            return $default;
+        }
         $data = json_decode($json, true);
 
         if (! $data || ! isset($data['expires_at'])) {
@@ -77,6 +80,9 @@ final class FileCache
         }
 
         $json = file_get_contents($path);
+        if ($json === false) {
+            return false;
+        }
         $data = json_decode($json, true);
 
         if (! $data || ! isset($data['expires_at'])) {
@@ -232,6 +238,9 @@ final class FileCache
             }
 
             $json = file_get_contents($file);
+            if ($json === false) {
+                continue;
+            }
             $data = json_decode($json, true);
 
             if (! $data || ! isset($data['expires_at'])) {
@@ -249,6 +258,8 @@ final class FileCache
 
     /**
      * Get cache statistics.
+     *
+     * @return array<string, int>
      */
     public function stats(): array
     {
@@ -276,6 +287,9 @@ final class FileCache
             $size += filesize($file);
 
             $json = file_get_contents($file);
+            if ($json === false) {
+                continue;
+            }
             $data = json_decode($json, true);
 
             if ($data && isset($data['expires_at']) && time() > $data['expires_at']) {
@@ -312,8 +326,10 @@ final class FileCache
 
     /**
      * Create a cache key from multiple parts.
+     *
+     * @param string ...$parts
      */
-    public static function key(...$parts): string
+    public static function key(string ...$parts): string
     {
         return implode(':', $parts);
     }

@@ -1,5 +1,5 @@
 parameters:
-    level: 2
+    level: 6
     paths:
         - src
     memoryLimitFile: 2G
@@ -14,8 +14,6 @@ parameters:
         - '#Method.*::streamText\(\) should return.*but return statement is missing#'
         # ConfigValidator accessing dynamic properties (will fix)
         - '#Access to an undefined property.*ProviderConfig::#'
-        # Schema template type (will fix)
-        - '#PHPDoc tag @return with type TClass is not subtype of native type object#'
         # Unused variables in closures (minor)
         - '#Anonymous function has an unused use#'
         # Private property access (will review)

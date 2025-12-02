@@ -9,6 +9,9 @@ use AnyLLM\Responses\TranscriptionResponse;
 
 interface AudioInterface
 {
+    /**
+     * @param array<string, mixed> $options
+     */
     public function textToSpeech(
         string $model,
         string $text,
@@ -19,6 +22,7 @@ interface AudioInterface
     ): AudioResponse;
 
     /**
+     * @param array<string, mixed> $options
      * @return \Generator<int, string> Audio chunks
      */
     public function streamTextToSpeech(
@@ -30,6 +34,7 @@ interface AudioInterface
 
     /**
      * @param resource|string $audio Audio file path or resource
+     * @param array<string, mixed> $options
      */
     public function speechToText(
         string $model,
@@ -39,6 +44,9 @@ interface AudioInterface
         array $options = [],
     ): TranscriptionResponse;
 
+    /**
+     * @param array<string, mixed> $options
+     */
     public function translateAudio(
         string $model,
         mixed $audio,

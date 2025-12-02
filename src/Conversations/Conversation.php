@@ -29,6 +29,7 @@ final class Conversation
 
         // Basic info
         public ?string $title = null,
+        /** @var array<string, mixed> */
         public array $metadata = [],
 
         // Summary management
@@ -51,24 +52,34 @@ final class Conversation
         $this->updatedAt = $updatedAt ?? new \DateTimeImmutable();
     }
 
+    /**
+     * @param array<string, mixed> $config
+     */
     public static function create(
         string $id,
         ?string $userId = null,
         ?string $sessionId = null,
         array $config = [],
     ): self {
+        $organizationId = $config['organization_id'] ?? null;
+        $teamId = $config['team_id'] ?? null;
+        $environment = $config['environment'] ?? 'production';
+        $autoSummarize = $config['auto_summarize'] ?? true;
+        $summarizeAfterMessages = $config['summarize_after_messages'] ?? 20;
+        $keepRecentMessages = $config['keep_recent_messages'] ?? 5;
+        $metadata = $config['metadata'] ?? [];
         return new self(
             id: $id,
             uuid: self::generateUuid(),
-            organizationId: $config['organization_id'] ?? null,
-            teamId: $config['team_id'] ?? null,
+            organizationId: ($organizationId === null || is_string($organizationId)) ? $organizationId : (string) $organizationId,
+            teamId: ($teamId === null || is_string($teamId)) ? $teamId : (string) $teamId,
             userId: $userId,
             sessionId: $sessionId,
-            environment: $config['environment'] ?? 'production',
-            autoSummarize: $config['auto_summarize'] ?? true,
-            summarizeAfterMessages: $config['summarize_after_messages'] ?? 20,
-            keepRecentMessages: $config['keep_recent_messages'] ?? 5,
-            metadata: $config['metadata'] ?? [],
+            environment: is_string($environment) ? $environment : 'production',
+            autoSummarize: is_bool($autoSummarize) ? $autoSummarize : true,
+            summarizeAfterMessages: is_int($summarizeAfterMessages) ? $summarizeAfterMessages : 20,
+            keepRecentMessages: is_int($keepRecentMessages) ? $keepRecentMessages : 5,
+            metadata: is_array($metadata) ? $metadata : [],
         );
     }
 
@@ -251,6 +262,9 @@ final class Conversation
         return max(0, $originalTokens - $this->summaryTokenCount);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toArray(): array
     {
         return [

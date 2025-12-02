@@ -53,8 +53,10 @@ final class ConfigValidator
 
         // Validate base URI for custom endpoints
         if (isset($config->options['base_uri'])) {
-            if (! filter_var($config->options['base_uri'], FILTER_VALIDATE_URL)) {
-                $errors[] = "Invalid base URI: {$config->options['base_uri']}";
+            $baseUriValue = $config->options['base_uri'];
+            $baseUri = is_string($baseUriValue) ? $baseUriValue : (is_scalar($baseUriValue) ? (string) $baseUriValue : '');
+            if ($baseUri !== '' && ! filter_var($baseUri, FILTER_VALIDATE_URL)) {
+                $errors[] = "Invalid base URI: {$baseUri}";
             }
         }
 
@@ -68,6 +70,8 @@ final class ConfigValidator
     /**
      * Validate array of configuration values.
      *
+     * @param array<string, mixed> $config
+     * @param array<string, mixed> $rules
      * @throws ValidationException
      */
     public static function validate(array $config, array $rules): void
@@ -93,6 +97,9 @@ final class ConfigValidator
 
     /**
      * Validate a single field against rules.
+     *
+     * @param array<string, mixed> $rules
+     * @return array<string>
      */
     private static function validateField(string $key, mixed $value, array $rules): array
     {
@@ -144,7 +151,7 @@ final class ConfigValidator
                     break;
 
                 case 'regex':
-                    if ($value !== null && ! preg_match($ruleValue, $value)) {
+                    if ($value !== null && is_string($ruleValue) && is_string($value) && ! preg_match($ruleValue, $value)) {
                         $errors[] = "Field '{$key}' format is invalid";
                     }
                     break;
@@ -167,6 +174,8 @@ final class ConfigValidator
 
     /**
      * Parse a rule string like "required|type:string|min:5".
+     *
+     * @return array<string, mixed>
      */
     private static function parseRule(string $rule): array
     {

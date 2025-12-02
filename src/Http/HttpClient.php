@@ -21,6 +21,7 @@ final class HttpClient implements HttpClientInterface
     public function __construct(
         private readonly ?ClientInterface $client = null,
         private readonly string $baseUri = '',
+        /** @var array<string, string> */
         private readonly array $headers = [],
         private readonly ?RequestFactoryInterface $requestFactory = null,
         private readonly ?StreamFactoryInterface $streamFactory = null,
@@ -35,6 +36,10 @@ final class HttpClient implements HttpClientInterface
         }
     }
 
+    /**
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
     public function post(string $endpoint, array $data, bool $raw = false): array
     {
         if ($this->client === null) {
@@ -43,6 +48,9 @@ final class HttpClient implements HttpClientInterface
 
         $url = $this->buildUrl($endpoint);
         $body = json_encode($data);
+        if ($body === false) {
+            throw new \RuntimeException('Failed to encode request data as JSON');
+        }
 
         $request = $this->requestFactory?->createRequest('POST', $url)
             ?? new \GuzzleHttp\Psr7\Request('POST', $url);
@@ -75,6 +83,10 @@ final class HttpClient implements HttpClientInterface
         }
     }
 
+    /**
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
     public function multipart(string $endpoint, array $data): array
     {
         // Simplified multipart implementation
@@ -82,6 +94,10 @@ final class HttpClient implements HttpClientInterface
         return $this->post($endpoint, $data);
     }
 
+    /**
+     * @param array<string, mixed> $data
+     * @return \Generator<int, array<string, mixed>>
+     */
     public function stream(string $endpoint, array $data): \Generator
     {
         if ($this->client === null) {
@@ -90,6 +106,9 @@ final class HttpClient implements HttpClientInterface
 
         $url = $this->buildUrl($endpoint);
         $body = json_encode($data);
+        if ($body === false) {
+            throw new \RuntimeException('Failed to encode request data as JSON');
+        }
 
         $request = $this->requestFactory?->createRequest('POST', $url)
             ?? new \GuzzleHttp\Psr7\Request('POST', $url);
@@ -123,7 +142,7 @@ final class HttpClient implements HttpClientInterface
                         }
 
                         $decoded = json_decode($data, true);
-                        if ($decoded !== null) {
+                        if (is_array($decoded)) {
                             yield $decoded;
                         }
                     }
@@ -139,6 +158,10 @@ final class HttpClient implements HttpClientInterface
         return rtrim($this->baseUri, '/') . '/' . ltrim($endpoint, '/');
     }
 
+    /**
+     * @param array<string, mixed> $data
+     * @return PromiseInterface<array<string, mixed>>
+     */
     public function postAsync(string $endpoint, array $data, bool $raw = false): PromiseInterface
     {
         if ($this->guzzleClient === null) {
@@ -176,6 +199,10 @@ final class HttpClient implements HttpClientInterface
         });
     }
 
+    /**
+     * @param array<string, mixed> $data
+     * @return PromiseInterface<array<string, mixed>>
+     */
     public function multipartAsync(string $endpoint, array $data): PromiseInterface
     {
         if ($this->guzzleClient === null) {
@@ -209,6 +236,10 @@ final class HttpClient implements HttpClientInterface
         });
     }
 
+    /**
+     * @param array<string, mixed> $data
+     * @return array<int, array<string, string>>
+     */
     private function formatMultipartData(array $data): array
     {
         $multipart = [];

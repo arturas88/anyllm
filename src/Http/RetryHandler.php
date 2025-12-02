@@ -48,6 +48,9 @@ final class RetryHandler
             }
         }
 
+        if ($lastException === null) {
+            throw new \RuntimeException('Retry operation failed without exception');
+        }
         throw $lastException;
     }
 

@@ -9,6 +9,7 @@ use AnyLLM\Middleware\Context\ResponseContext;
 
 final class MetricsMiddleware implements MiddlewareInterface
 {
+    /** @var array<string, mixed> */
     private array $metrics = [
         'total_requests' => 0,
         'failed_requests' => 0,
@@ -42,6 +43,9 @@ final class MetricsMiddleware implements MiddlewareInterface
         $this->metrics['total_duration_ms'] += $duration;
 
         // Track by provider
+        if (!isset($this->metrics['by_provider']) || !is_array($this->metrics['by_provider'])) {
+            $this->metrics['by_provider'] = [];
+        }
         if (! isset($this->metrics['by_provider'][$context->provider])) {
             $this->metrics['by_provider'][$context->provider] = [
                 'requests' => 0,
@@ -49,24 +53,33 @@ final class MetricsMiddleware implements MiddlewareInterface
                 'tokens' => 0,
             ];
         }
-        $this->metrics['by_provider'][$context->provider]['requests']++;
-        $this->metrics['by_provider'][$context->provider]['duration_ms'] += $duration;
+        if (is_array($this->metrics['by_provider'][$context->provider])) {
+            $this->metrics['by_provider'][$context->provider]['requests']++;
+            $this->metrics['by_provider'][$context->provider]['duration_ms'] += $duration;
+        }
 
         // Track by method
+        if (!isset($this->metrics['by_method']) || !is_array($this->metrics['by_method'])) {
+            $this->metrics['by_method'] = [];
+        }
         if (! isset($this->metrics['by_method'][$context->method])) {
             $this->metrics['by_method'][$context->method] = [
                 'requests' => 0,
                 'duration_ms' => 0.0,
             ];
         }
-        $this->metrics['by_method'][$context->method]['requests']++;
-        $this->metrics['by_method'][$context->method]['duration_ms'] += $duration;
+        if (is_array($this->metrics['by_method'][$context->method])) {
+            $this->metrics['by_method'][$context->method]['requests']++;
+            $this->metrics['by_method'][$context->method]['duration_ms'] += $duration;
+        }
 
         // Track tokens if available
-        if (isset($responseContext->response->usage)) {
+        if ($responseContext->response instanceof \AnyLLM\Responses\Response && isset($responseContext->response->usage)) {
             $tokens = $responseContext->response->usage->totalTokens;
             $this->metrics['total_tokens'] += $tokens;
-            $this->metrics['by_provider'][$context->provider]['tokens'] += $tokens;
+            if (isset($this->metrics['by_provider'][$context->provider])) {
+                $this->metrics['by_provider'][$context->provider]['tokens'] += $tokens;
+            }
         }
     }
 
@@ -78,6 +91,9 @@ final class MetricsMiddleware implements MiddlewareInterface
         $this->metrics['failed_requests']++;
         $this->metrics['total_duration_ms'] += $duration;
 
+        if (!isset($this->metrics['by_provider']) || !is_array($this->metrics['by_provider'])) {
+            $this->metrics['by_provider'] = [];
+        }
         if (! isset($this->metrics['by_provider'][$context->provider])) {
             $this->metrics['by_provider'][$context->provider] = [
                 'requests' => 0,
@@ -85,12 +101,16 @@ final class MetricsMiddleware implements MiddlewareInterface
                 'tokens' => 0,
             ];
         }
-        $this->metrics['by_provider'][$context->provider]['requests']++;
-        $this->metrics['by_provider'][$context->provider]['duration_ms'] += $duration;
+        if (is_array($this->metrics['by_provider'][$context->provider])) {
+            $this->metrics['by_provider'][$context->provider]['requests']++;
+            $this->metrics['by_provider'][$context->provider]['duration_ms'] += $duration;
+        }
     }
 
     /**
      * Get collected metrics.
+     *
+     * @return array<string, mixed>
      */
     public function getMetrics(): array
     {

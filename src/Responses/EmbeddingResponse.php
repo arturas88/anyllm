@@ -10,6 +10,8 @@ final class EmbeddingResponse extends Response
 {
     /**
      * @param array<array<float>> $embeddings Array of embedding vectors
+     * @param array<string, mixed>|null $metadata
+     * @param array<string, mixed>|null $raw
      */
     public function __construct(
         public readonly array $embeddings,
@@ -22,11 +24,15 @@ final class EmbeddingResponse extends Response
         parent::__construct($id, $model, $usage, $raw);
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     public static function fromArray(array $data): static
     {
+        $dataArray = is_array($data['data'] ?? null) ? $data['data'] : [];
         $embeddings = array_map(
-            fn($item) => $item['embedding'] ?? [],
-            $data['data'] ?? []
+            fn($item) => (is_array($item) && isset($item['embedding']) && is_array($item['embedding'])) ? $item['embedding'] : [],
+            $dataArray
         );
 
         return new self(

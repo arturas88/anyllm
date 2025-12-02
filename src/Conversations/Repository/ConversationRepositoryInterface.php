@@ -63,6 +63,8 @@ interface ConversationRepositoryInterface
 
     /**
      * Update conversation metadata.
+     *
+     * @param array<string, mixed> $metadata
      */
     public function updateMetadata(string $id, array $metadata): bool;
 

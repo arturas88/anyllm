@@ -28,6 +28,8 @@ final class AnyLLM
 
     /**
      * Create a provider instance.
+     *
+     * @param array<string, mixed> $config
      */
     public static function create(
         Provider|string $provider,
@@ -57,6 +59,8 @@ final class AnyLLM
 
     /**
      * Create an OpenAI provider instance.
+     *
+     * @param array<string, mixed> $config
      */
     public static function openai(?string $apiKey = null, array $config = []): ProviderInterface
     {
@@ -65,6 +69,8 @@ final class AnyLLM
 
     /**
      * Create an Anthropic provider instance.
+     *
+     * @param array<string, mixed> $config
      */
     public static function anthropic(?string $apiKey = null, array $config = []): ProviderInterface
     {
@@ -73,6 +79,8 @@ final class AnyLLM
 
     /**
      * Create a Google AI provider instance.
+     *
+     * @param array<string, mixed> $config
      */
     public static function google(?string $apiKey = null, array $config = []): ProviderInterface
     {
@@ -81,6 +89,8 @@ final class AnyLLM
 
     /**
      * Create a Mistral AI provider instance.
+     *
+     * @param array<string, mixed> $config
      */
     public static function mistral(?string $apiKey = null, array $config = []): ProviderInterface
     {
@@ -89,6 +99,8 @@ final class AnyLLM
 
     /**
      * Create an xAI (Grok) provider instance.
+     *
+     * @param array<string, mixed> $config
      */
     public static function xai(?string $apiKey = null, array $config = []): ProviderInterface
     {
@@ -97,6 +109,8 @@ final class AnyLLM
 
     /**
      * Create an OpenRouter provider instance (access to 100+ models).
+     *
+     * @param array<string, mixed> $config
      */
     public static function openrouter(?string $apiKey = null, array $config = []): ProviderInterface
     {
@@ -105,6 +119,8 @@ final class AnyLLM
 
     /**
      * Create an Ollama provider instance (local models).
+     *
+     * @param array<string, mixed> $config
      */
     public static function ollama(?string $baseUri = null, array $config = []): ProviderInterface
     {

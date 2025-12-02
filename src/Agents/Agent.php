@@ -56,10 +56,10 @@ final class Agent
 
     /**
      * Set a callback that will be called before tool execution.
-     * The callback receives: string $toolName, array $arguments
+     * The callback receives: string $toolName, array<string, mixed> $arguments
      * Return true to proceed, false to skip, or throw an exception to abort.
      *
-     * @param callable(string, array): bool $callback
+     * @param callable(string, array<string, mixed>): bool $callback
      */
     public function withBeforeToolExecution(callable $callback): self
     {
@@ -171,8 +171,12 @@ final class Agent
                     $shouldProceed = ($this->beforeToolExecutionCallback)($toolCall->name, $toolCall->arguments);
                     if ($shouldProceed === false) {
                         // Skip this tool execution
+                        $jsonContent = json_encode(['skipped' => true, 'reason' => 'Human approval denied']);
+                        if ($jsonContent === false) {
+                            $jsonContent = '{"skipped":true,"reason":"Human approval denied"}';
+                        }
                         $messages[] = new ToolMessage(
-                            content: json_encode(['skipped' => true, 'reason' => 'Human approval denied']),
+                            content: $jsonContent,
                             toolCallId: $toolCall->id,
                         );
                         continue;
@@ -205,8 +209,15 @@ final class Agent
 
                 $toolExecutions[] = $toolExecution;
 
+                $content = is_string($toolExecution->result)
+                    ? $toolExecution->result
+                    : json_encode($toolExecution->result);
+                if ($content === false) {
+                    $content = '{}';
+                }
+
                 $messages[] = new ToolMessage(
-                    content: is_string($toolExecution->result) ? $toolExecution->result : json_encode($toolExecution->result),
+                    content: $content,
                     toolCallId: $toolCall->id,
                 );
             }

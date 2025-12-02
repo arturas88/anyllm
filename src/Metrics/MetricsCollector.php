@@ -6,7 +6,9 @@ namespace AnyLLM\Metrics;
 
 final class MetricsCollector
 {
+    /** @var array<string, array<string, mixed>> */
     private array $metrics = [];
+    /** @var array<string, float> */
     private array $timers = [];
 
     /**
@@ -132,7 +134,7 @@ final class MetricsCollector
      */
     public function observe(string $key, float $value): void
     {
-        if (! isset($this->metrics[$key])) {
+        if (!isset($this->metrics[$key])) {
             $this->metrics[$key] = [
                 'type' => 'histogram',
                 'values' => [],
@@ -141,6 +143,10 @@ final class MetricsCollector
             ];
         }
 
+        // $this->metrics[$key] is always an array when key exists (from property type)
+        if (!isset($this->metrics[$key]['values']) || !is_array($this->metrics[$key]['values'])) {
+            $this->metrics[$key]['values'] = [];
+        }
         $this->metrics[$key]['values'][] = $value;
         $this->metrics[$key]['count']++;
         $this->metrics[$key]['sum'] += $value;
@@ -148,6 +154,8 @@ final class MetricsCollector
 
     /**
      * Get all metrics.
+     *
+     * @return array<string, array<string, mixed>>
      */
     public function getMetrics(): array
     {
@@ -160,8 +168,8 @@ final class MetricsCollector
                     'count' => $data['count'],
                     'sum' => $data['sum'],
                     'avg' => $data['count'] > 0 ? $data['sum'] / $data['count'] : 0,
-                    'min' => ! empty($data['values']) ? min($data['values']) : 0,
-                    'max' => ! empty($data['values']) ? max($data['values']) : 0,
+                    'min' => ! empty($data['values']) && is_array($data['values']) ? min($data['values']) : 0,
+                    'max' => ! empty($data['values']) && is_array($data['values']) ? max($data['values']) : 0,
                     'p50' => $this->percentile($data['values'], 50),
                     'p95' => $this->percentile($data['values'], 95),
                     'p99' => $this->percentile($data['values'], 99),
@@ -214,6 +222,8 @@ final class MetricsCollector
 
     /**
      * Calculate percentile.
+     *
+     * @param array<float> $values
      */
     private function percentile(array $values, int $percentile): float
     {

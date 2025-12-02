@@ -27,6 +27,9 @@ final class CachingMiddleware implements MiddlewareInterface
         // Check cache
         if ($this->cache->has($cacheKey)) {
             $cached = $this->cache->get($cacheKey);
+            if (!is_array($cached) || !isset($cached['response'])) {
+                return $next($context);
+            }
 
             return new ResponseContext(
                 request: $context,
@@ -63,7 +66,11 @@ final class CachingMiddleware implements MiddlewareInterface
             'params' => $context->params,
         ];
 
-        return 'llm:' . md5(json_encode($data));
+        $json = json_encode($data);
+        if ($json === false) {
+            throw new \RuntimeException('Failed to encode cache key data as JSON');
+        }
+        return 'llm:' . md5($json);
     }
 
     private function shouldCache(string $method): bool

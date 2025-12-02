@@ -8,6 +8,7 @@ use AnyLLM\Exceptions\ValidationException;
 
 final class PromptTemplate
 {
+    /** @var array<string, mixed> */
     private array $variables = [];
 
     public function __construct(
@@ -33,6 +34,8 @@ final class PromptTemplate
 
     /**
      * Set multiple variables at once.
+     *
+     * @param array<string, mixed> $variables
      */
     public function withMany(array $variables): self
     {
@@ -90,6 +93,8 @@ final class PromptTemplate
 
     /**
      * Get all required variables (placeholders) in the template.
+     *
+     * @return array<int, string>
      */
     public function getRequiredVariables(): array
     {
@@ -125,14 +130,16 @@ final class PromptTemplate
         }
 
         if (is_array($value)) {
-            return json_encode($value, JSON_PRETTY_PRINT);
+            $json = json_encode($value, JSON_PRETTY_PRINT);
+            return $json !== false ? $json : '[]';
         }
 
         if (is_object($value)) {
             if (method_exists($value, '__toString')) {
                 return (string) $value;
             }
-            return json_encode($value, JSON_PRETTY_PRINT);
+            $json = json_encode($value, JSON_PRETTY_PRINT);
+            return $json !== false ? $json : '{}';
         }
 
         return '';
@@ -148,11 +155,16 @@ final class PromptTemplate
         }
 
         $content = file_get_contents($path);
+        if ($content === false) {
+            throw new ValidationException("Could not read template file: {$path}");
+        }
         return new self($content);
     }
 
     /**
      * Common template helpers for typical scenarios.
+     *
+     * @param array<int|string, string> $categories
      */
     public static function classification(array $categories): self
     {

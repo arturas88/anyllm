@@ -46,7 +46,7 @@ final class DatabaseConversationRepository implements ConversationRepositoryInte
         $stmt->execute(['id' => $id]);
         $row = $stmt->fetch(\PDO::FETCH_ASSOC);
 
-        if (! $row) {
+        if (! is_array($row)) {
             return null;
         }
 
@@ -132,7 +132,11 @@ final class DatabaseConversationRepository implements ConversationRepositoryInte
             );
         }
 
-        return (int) $stmt->fetchColumn();
+        if ($stmt === false) {
+            return 0;
+        }
+        $result = $stmt->fetchColumn();
+        return is_numeric($result) ? (int) $result : 0;
     }
 
     public function paginate(int $page = 1, int $perPage = 20, ?string $userId = null): array
@@ -202,6 +206,9 @@ final class DatabaseConversationRepository implements ConversationRepositoryInte
         );
     }
 
+    /**
+     * @param array<string, mixed> $metadata
+     */
     public function updateMetadata(string $id, array $metadata): bool
     {
         $stmt = $this->pdo->prepare(
@@ -376,8 +383,13 @@ final class DatabaseConversationRepository implements ConversationRepositoryInte
         }
     }
 
+    /**
+     * @param array<string, mixed> $row
+     */
     private function hydrateConversation(array $row): Conversation
     {
+        $metadata = $row['metadata'] ?? '[]';
+        $decodedMetadata = is_string($metadata) ? json_decode($metadata, true) : (is_array($metadata) ? $metadata : []);
         $conversation = new Conversation(
             id: $row['id'],
             uuid: $row['uuid'],
@@ -387,7 +399,7 @@ final class DatabaseConversationRepository implements ConversationRepositoryInte
             sessionId: $row['session_id'] ?? null,
             environment: $row['environment'] ?? 'production',
             title: $row['title'] ?? null,
-            metadata: json_decode($row['metadata'] ?? '[]', true),
+            metadata: is_array($decodedMetadata) ? $decodedMetadata : [],
             summary: $row['summary'] ?? null,
             summaryTokenCount: (int) ($row['summary_token_count'] ?? 0),
             summarizedAt: $row['summarized_at'] ?? null,
@@ -429,7 +441,7 @@ final class DatabaseConversationRepository implements ConversationRepositoryInte
                 conversationId: (int) $row['conversation_id'],
                 organizationId: $row['organization_id'] ?? null,
                 userId: $row['user_id'] ?? null,
-                metadata: json_decode($row['metadata'] ?? '[]', true),
+                metadata: is_array($row['metadata'] ?? null) ? $row['metadata'] : (json_decode($row['metadata'] ?? '[]', true) ?: []),
                 promptTokens: (int) ($row['prompt_tokens'] ?? 0),
                 completionTokens: (int) ($row['completion_tokens'] ?? 0),
                 totalTokens: (int) ($row['total_tokens'] ?? 0),
@@ -437,7 +449,7 @@ final class DatabaseConversationRepository implements ConversationRepositoryInte
                 model: $row['model'] ?? null,
                 provider: $row['provider'] ?? null,
                 finishReason: $row['finish_reason'] ?? null,
-                toolCalls: isset($row['tool_calls']) ? json_decode($row['tool_calls'], true) : null,
+                toolCalls: isset($row['tool_calls']) && is_string($row['tool_calls']) ? (json_decode($row['tool_calls'], true) ?: null) : (is_array($row['tool_calls'] ?? null) ? $row['tool_calls'] : null),
                 toolCallId: $row['tool_call_id'] ?? null,
                 includedInSummary: (bool) ($row['included_in_summary'] ?? false),
                 summarizedAt: $row['summarized_at'] ?? null,

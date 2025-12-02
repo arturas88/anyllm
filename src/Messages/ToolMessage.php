@@ -21,6 +21,9 @@ final class ToolMessage extends Message
         return Role::Tool;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toOpenAIFormat(): array
     {
         return [

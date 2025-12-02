@@ -48,6 +48,9 @@ final class AssistantMessage extends Message
         );
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toOpenAIFormat(): array
     {
         $formatted = parent::toOpenAIFormat();

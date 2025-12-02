@@ -11,6 +11,9 @@ use ReflectionNamedType;
 
 final class Tool
 {
+    /**
+     * @param array<string, array<string, mixed>> $parameters
+     */
     private function __construct(
         public readonly string $name,
         public readonly string $description,
@@ -34,6 +37,9 @@ final class Tool
         );
     }
 
+    /**
+     * @param array<string, array<string, mixed>> $parameters
+     */
     public static function create(
         string $name,
         string $description,
@@ -48,6 +54,9 @@ final class Tool
         );
     }
 
+    /**
+     * @param array<string, mixed> $arguments
+     */
     public function execute(array $arguments): mixed
     {
         if ($this->handler === null) {
@@ -57,6 +66,9 @@ final class Tool
         return ($this->handler)(...$arguments);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toProviderFormat(string $provider): array
     {
         return match ($provider) {
@@ -66,6 +78,9 @@ final class Tool
         };
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function toOpenAIFormat(): array
     {
         return [
@@ -84,6 +99,9 @@ final class Tool
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function toAnthropicFormat(): array
     {
         return [
@@ -99,6 +117,9 @@ final class Tool
         ];
     }
 
+    /**
+     * @return array<string, array<string, mixed>>
+     */
     private static function extractParameters(ReflectionFunction $reflection): array
     {
         $params = [];

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AnyLLM\Providers\OpenRouter;
 
 use AnyLLM\Messages\Message;
+use AnyLLM\Messages\UserMessage;
 use AnyLLM\Providers\AbstractProvider;
 use AnyLLM\Responses\ChatResponse;
 use AnyLLM\Responses\ImageResponse;
@@ -50,6 +51,9 @@ final class OpenRouterProvider extends AbstractProvider
         return $this->config->baseUri ?? 'https://openrouter.ai/api/v1';
     }
 
+    /**
+     * @return array<string, string>
+     */
     protected function getDefaultHeaders(): array
     {
         $headers = [
@@ -59,14 +63,17 @@ final class OpenRouterProvider extends AbstractProvider
 
         // Optional: Identify your app on openrouter.ai
         if (isset($this->config->options['site_url'])) {
-            $headers['HTTP-Referer'] = $this->config->options['site_url'];
+            $siteUrl = $this->config->options['site_url'];
+            $headers['HTTP-Referer'] = is_string($siteUrl) ? $siteUrl : (is_scalar($siteUrl) ? (string) $siteUrl : '');
         }
 
         if (isset($this->config->options['app_name'])) {
-            $headers['X-Title'] = $this->config->options['app_name'];
+            $appName = $this->config->options['app_name'];
+            $headers['X-Title'] = is_string($appName) ? $appName : (is_scalar($appName) ? (string) $appName : '');
         }
 
-        return array_merge($headers, $this->config->headers);
+        $merged = array_merge($headers, $this->config->headers);
+        return array_map(fn($v) => (string) $v, $merged);
     }
 
     public function generateText(
@@ -79,7 +86,7 @@ final class OpenRouterProvider extends AbstractProvider
     ): TextResponse {
         $response = $this->chat(
             model: $model,
-            messages: [['role' => 'user', 'content' => $prompt]],
+            messages: [UserMessage::create($prompt)],
             temperature: $temperature,
             maxTokens: $maxTokens,
             options: array_merge(['stop' => $stop], $options),
@@ -103,7 +110,7 @@ final class OpenRouterProvider extends AbstractProvider
     ): \Generator {
         foreach ($this->streamChat(
             model: $model,
-            messages: [['role' => 'user', 'content' => $prompt]],
+            messages: [UserMessage::create($prompt)],
             temperature: $temperature,
             maxTokens: $maxTokens,
             options: $options
@@ -274,6 +281,9 @@ final class OpenRouterProvider extends AbstractProvider
         ], $schema);
     }
 
+    /**
+     * @param array<string, mixed> $options
+     */
     public function generateImage(
         string $model,
         string $prompt,
@@ -302,6 +312,9 @@ final class OpenRouterProvider extends AbstractProvider
      *
      * @see https://openrouter.ai/docs/api-reference/get-a-generation
      */
+    /**
+     * @return array<string, mixed>
+     */
     public function getGenerationStats(string $generationId): array
     {
         return $this->http->post("/generation?id={$generationId}", []);
@@ -325,6 +338,10 @@ final class OpenRouterProvider extends AbstractProvider
         return $chunk;
     }
 
+    /**
+     * @param array<string, mixed> $response
+     * @return array<string, mixed>
+     */
     private function mapChatResponse(array $response): array
     {
         $choice = $response['choices'][0] ?? [];
@@ -342,6 +359,10 @@ final class OpenRouterProvider extends AbstractProvider
         ];
     }
 
+    /**
+     * @param array<Message|array<string, mixed>> $messages
+     * @return array<int, array<string, mixed>>
+     */
     private function formatMessages(array $messages): array
     {
         return array_map(
@@ -352,6 +373,10 @@ final class OpenRouterProvider extends AbstractProvider
         );
     }
 
+    /**
+     * @param array<Tool|array<string, mixed>> $tools
+     * @return array<int, array<string, mixed>>
+     */
     private function formatTools(array $tools): array
     {
         return array_map(

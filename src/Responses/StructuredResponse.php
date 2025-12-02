@@ -13,8 +13,9 @@ use AnyLLM\Responses\Parts\Usage;
 final class StructuredResponse extends Response
 {
     /**
-     * @param T|array $object
+     * @param T|array<string, mixed> $object
      * @param Schema<T>|null $schema
+     * @param array<string, mixed>|null $raw
      */
     public function __construct(
         public readonly mixed $object,
@@ -28,6 +29,7 @@ final class StructuredResponse extends Response
     }
 
     /**
+     * @param array<string, mixed> $data
      * @param Schema<T>|class-string<T>|null $schema
      * @return self<T>
      */
@@ -35,7 +37,7 @@ final class StructuredResponse extends Response
     {
         $schemaInstance = match (true) {
             $schema instanceof Schema => $schema,
-            is_string($schema) => Schema::fromClass($schema),
+            is_string($schema) && class_exists($schema) => Schema::fromClass($schema), // @phpstan-ignore-line
             default => null,
         };
 
@@ -70,6 +72,7 @@ final class StructuredResponse extends Response
 
         $parsed = $schemaInstance?->parse($content) ?? $content;
 
+        /** @var Schema<T>|null $schemaInstance */
         return new self(
             object: $parsed,
             schema: $schemaInstance,
@@ -80,6 +83,9 @@ final class StructuredResponse extends Response
         );
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toArray(): array
     {
         return [

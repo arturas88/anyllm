@@ -10,6 +10,7 @@ use AnyLLM\Messages\Message;
 use AnyLLM\Messages\SystemMessage;
 use AnyLLM\Messages\ToolMessage;
 use AnyLLM\Messages\UserMessage;
+use AnyLLM\Responses\Parts\ToolCall;
 
 final class ConversationMessage
 {
@@ -27,6 +28,7 @@ final class ConversationMessage
         public readonly ?string $userId = null,
 
         // Message metadata
+        /** @var array<string, mixed> */
         public readonly array $metadata = [],
 
         // Token tracking per message
@@ -41,6 +43,7 @@ final class ConversationMessage
         public readonly ?string $finishReason = null,
 
         // Tool calls
+        /** @var array<int, array<string, mixed>>|null */
         public readonly ?array $toolCalls = null,
         public readonly ?string $toolCallId = null,
 
@@ -64,6 +67,9 @@ final class ConversationMessage
         ?string $userId = null,
     ): self {
         $content = is_string($message->content) ? $message->content : json_encode($message->content);
+        if ($content === false) {
+            $content = '';
+        }
 
         return new self(
             role: $message->role->value,
@@ -92,7 +98,10 @@ final class ConversationMessage
             Role::User => UserMessage::create($this->content),
             Role::Assistant => new AssistantMessage(
                 content: $this->content,
-                toolCalls: $this->toolCalls ?? [],
+                toolCalls: $this->toolCalls === null ? [] : array_map(
+                    fn($tc) => ToolCall::fromArray($tc),
+                    $this->toolCalls
+                ),
             ),
             Role::Tool => new ToolMessage(
                 content: $this->content,
@@ -101,6 +110,9 @@ final class ConversationMessage
         };
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toArray(): array
     {
         return [

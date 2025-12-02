@@ -10,6 +10,7 @@ final class ImageResponse extends Response
 {
     /**
      * @param array<string> $urls
+     * @param array<string, mixed>|null $raw
      */
     public function __construct(
         public readonly array $urls,
@@ -21,16 +22,24 @@ final class ImageResponse extends Response
         parent::__construct($id, $model, $usage, $raw);
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     public static function fromArray(array $data): static
     {
         $urls = [];
 
-        if (isset($data['data'])) {
+        if (isset($data['data']) && is_array($data['data'])) {
             foreach ($data['data'] as $image) {
-                $urls[] = $image['url'] ?? $image['b64_json'] ?? '';
+                if (is_array($image)) {
+                    $url = $image['url'] ?? $image['b64_json'] ?? '';
+                    if (is_string($url)) {
+                        $urls[] = $url;
+                    }
+                }
             }
-        } elseif (isset($data['urls'])) {
-            $urls = $data['urls'];
+        } elseif (isset($data['urls']) && is_array($data['urls'])) {
+            $urls = array_filter($data['urls'], fn($u) => is_string($u));
         }
 
         return new self(
@@ -42,6 +51,9 @@ final class ImageResponse extends Response
         );
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toArray(): array
     {
         return [

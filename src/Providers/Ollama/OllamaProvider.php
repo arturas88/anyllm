@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AnyLLM\Providers\Ollama;
 
 use AnyLLM\Messages\Message;
+use AnyLLM\Messages\UserMessage;
 use AnyLLM\Providers\AbstractProvider;
 use AnyLLM\Responses\ChatResponse;
 use AnyLLM\Responses\StructuredResponse;
@@ -54,11 +55,17 @@ final class OllamaProvider extends AbstractProvider
         ], $this->config->headers);
     }
 
+    /**
+     * @return array<string>
+     */
     public function listModels(): array
     {
         try {
             $response = $this->http->post('/models', []);
-            return $response['models'] ?? [];
+            if (!is_array($response) || !isset($response['models']) || !is_array($response['models'])) {
+                return [];
+            }
+            return array_filter(array_map(fn($m) => is_string($m) ? $m : (is_array($m) && isset($m['name']) && is_string($m['name']) ? $m['name'] : null), $response['models']), fn($m) => $m !== null);
         } catch (\Throwable $e) {
             return [];
         }
@@ -74,7 +81,7 @@ final class OllamaProvider extends AbstractProvider
     ): TextResponse {
         $response = $this->chat(
             model: $model,
-            messages: [['role' => 'user', 'content' => $prompt]],
+            messages: [UserMessage::create($prompt)],
             temperature: $temperature,
             maxTokens: $maxTokens,
             options: $options,
@@ -98,7 +105,7 @@ final class OllamaProvider extends AbstractProvider
     ): \Generator {
         foreach ($this->streamChat(
             model: $model,
-            messages: [['role' => 'user', 'content' => $prompt]],
+            messages: [UserMessage::create($prompt)],
             temperature: $temperature,
             maxTokens: $maxTokens,
             options: $options
@@ -195,7 +202,7 @@ final class OllamaProvider extends AbstractProvider
     ): StructuredResponse {
         $jsonSchema = $schema instanceof Schema
             ? $schema->toJsonSchema()
-            : Schema::fromClass($schema)->toJsonSchema();
+            : Schema::fromClass($schema)->toJsonSchema(); // @phpstan-ignore-line
 
         $messages = is_array($prompt)
             ? $this->formatMessages($prompt)
@@ -224,6 +231,9 @@ final class OllamaProvider extends AbstractProvider
 
     /**
      * Generate embeddings for text.
+     *
+     * @param string|array<int, string> $input
+     * @return array<string, mixed>
      */
     public function embed(string $model, string|array $input): array
     {
@@ -255,6 +265,10 @@ final class OllamaProvider extends AbstractProvider
         return $chunk;
     }
 
+    /**
+     * @param array<string, mixed> $response
+     * @return array<string, mixed>
+     */
     private function mapChatResponse(array $response): array
     {
         $message = $response['choices'][0]['message'] ?? [];
@@ -269,6 +283,10 @@ final class OllamaProvider extends AbstractProvider
         ];
     }
 
+    /**
+     * @param array<Message|array<string, mixed>> $messages
+     * @return array<int, array<string, mixed>>
+     */
     private function formatMessages(array $messages): array
     {
         return array_map(
@@ -279,6 +297,10 @@ final class OllamaProvider extends AbstractProvider
         );
     }
 
+    /**
+     * @param array<Tool|array<string, mixed>> $tools
+     * @return array<int, array<string, mixed>>
+     */
     private function formatTools(array $tools): array
     {
         return array_map(

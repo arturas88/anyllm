@@ -10,7 +10,9 @@ final class RequestContext
         public string $provider,
         public string $model,
         public string $method,
+        /** @var array<string, mixed> */
         public array $params,
+        /** @var array<string, mixed> */
         public array $metadata = [],
         public float $startTime = 0.0,
     ) {
@@ -31,6 +33,8 @@ final class RequestContext
 
     /**
      * Update request parameters.
+     *
+     * @param array<string, mixed> $params
      */
     public function withParams(array $params): self
     {
@@ -59,6 +63,8 @@ final class RequestContext
 
     /**
      * Convert to array.
+     *
+     * @return array<string, mixed>
      */
     public function toArray(): array
     {

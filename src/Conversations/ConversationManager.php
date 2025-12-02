@@ -27,6 +27,7 @@ final class ConversationManager
         private readonly ProviderInterface $provider,
         private readonly ?ConversationRepositoryInterface $repository = null,
         private readonly string $summaryModel = 'gpt-4o-mini',
+        /** @var array<string, mixed> */
         private readonly array $defaultConfig = [],
     ) {}
 
@@ -109,6 +110,8 @@ final class ConversationManager
 
     /**
      * Add a user message to a conversation.
+     *
+     * @param array<string, mixed> $metadata
      */
     public function addMessage(Conversation $conversation, string $role, string $content, array $metadata = []): ConversationMessage
     {
@@ -135,6 +138,9 @@ final class ConversationManager
      * Send a message and get response with automatic summarization.
      *
      * @deprecated Use chat(string $conversationId, string $userMessage, ...) instead
+     */
+    /**
+     * @param array<string, mixed> $options
      */
     public function chatWithConversation(
         Conversation $conversation,
@@ -305,6 +311,8 @@ final class ConversationManager
 
     /**
      * Convenience method to get or create a conversation.
+     *
+     * @param array<string, mixed> $config
      */
     public function conversation(
         string $id,
@@ -337,10 +345,7 @@ final class ConversationManager
     /**
      * Convenience method to send a chat message.
      *
-     * @param string $conversationId
-     * @param string $userMessage
-     * @param string $model
-     * @param array $options
+     * @param array<string, mixed> $options
      */
     public function chat(
         string $conversationId,

@@ -15,7 +15,11 @@ final readonly class FileContent implements Content
 
     public static function fromPath(string $path): self
     {
-        $data = base64_encode(file_get_contents($path));
+        $fileContents = file_get_contents($path);
+        if ($fileContents === false) {
+            throw new \RuntimeException("Failed to read file: {$path}");
+        }
+        $data = base64_encode($fileContents);
         $mediaType = mime_content_type($path) ?: 'application/octet-stream';
         $filename = basename($path);
 
@@ -37,6 +41,9 @@ final readonly class FileContent implements Content
         );
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toOpenAIFormat(): array
     {
         // OpenAI handles files differently based on provider
@@ -49,6 +56,9 @@ final readonly class FileContent implements Content
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toAnthropicFormat(): array
     {
         // Anthropic supports document content

@@ -12,6 +12,7 @@ final class ResponseContext
         public RequestContext $request,
         public mixed $response,
         public ?string $error = null,
+        /** @var array<string, mixed> */
         public array $metadata = [],
     ) {}
 
@@ -61,6 +62,8 @@ final class ResponseContext
 
     /**
      * Convert to array.
+     *
+     * @return array<string, mixed>
      */
     public function toArray(): array
     {

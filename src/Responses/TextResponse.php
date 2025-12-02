@@ -9,6 +9,9 @@ use AnyLLM\Responses\Parts\Usage;
 
 final class TextResponse extends Response
 {
+    /**
+     * @param array<string, mixed>|null $raw
+     */
     public function __construct(
         public readonly string $text,
         ?string $id = null,
@@ -20,10 +23,15 @@ final class TextResponse extends Response
         parent::__construct($id, $model, $usage, $raw);
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     public static function fromArray(array $data): static
     {
+        $text = $data['text'] ?? $data['content'] ?? '';
+        $textValue = is_string($text) ? $text : (is_scalar($text) ? (string) $text : '');
         return new self(
-            text: $data['text'] ?? $data['content'] ?? '',
+            text: $textValue,
             id: $data['id'] ?? null,
             model: $data['model'] ?? null,
             finishReason: isset($data['finish_reason'])
@@ -34,6 +42,9 @@ final class TextResponse extends Response
         );
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     public static function fake(array $data = []): self
     {
         return new self(
@@ -48,6 +59,9 @@ final class TextResponse extends Response
         );
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toArray(): array
     {
         return [

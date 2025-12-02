@@ -37,14 +37,22 @@ final class SSEFormatter
 
     /**
      * Format chunk as JSON SSE.
+     *
+     * @param array<string, mixed> $data
      */
     public static function formatJsonChunk(array $data, ?string $eventType = null, ?string $id = null): string
     {
-        return self::formatChunk(json_encode($data), $eventType, $id);
+        $json = json_encode($data);
+        if ($json === false) {
+            $json = '{}';
+        }
+        return self::formatChunk($json, $eventType, $id);
     }
 
     /**
      * Format a completion event.
+     *
+     * @param array<string, mixed>|null $metadata
      */
     public static function formatComplete(?array $metadata = null): string
     {
@@ -54,6 +62,8 @@ final class SSEFormatter
 
     /**
      * Format an error event.
+     *
+     * @param array<string, mixed>|null $details
      */
     public static function formatError(string $message, ?array $details = null): string
     {
@@ -66,6 +76,8 @@ final class SSEFormatter
 
     /**
      * Format a progress event.
+     *
+     * @param array<string, mixed> $progress
      */
     public static function formatProgress(array $progress): string
     {

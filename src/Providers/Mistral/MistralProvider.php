@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace AnyLLM\Providers\Mistral;
 
 use AnyLLM\Contracts\ImageGenerationInterface;
+use AnyLLM\Messages\AssistantMessage;
 use AnyLLM\Messages\Message;
+use AnyLLM\Messages\SystemMessage;
+use AnyLLM\Messages\UserMessage;
 use AnyLLM\Providers\AbstractProvider;
 use AnyLLM\Responses\ChatResponse;
 use AnyLLM\Responses\ImageResponse;
@@ -66,7 +69,7 @@ final class MistralProvider extends AbstractProvider implements ImageGenerationI
     ): TextResponse {
         $response = $this->chat(
             model: $model,
-            messages: [['role' => 'user', 'content' => $prompt]],
+            messages: [UserMessage::create($prompt)],
             temperature: $temperature,
             maxTokens: $maxTokens,
             options: $options,
@@ -90,7 +93,7 @@ final class MistralProvider extends AbstractProvider implements ImageGenerationI
     ): \Generator {
         foreach ($this->streamChat(
             model: $model,
-            messages: [['role' => 'user', 'content' => $prompt]],
+            messages: [UserMessage::create($prompt)],
             temperature: $temperature,
             maxTokens: $maxTokens,
             options: $options
@@ -139,9 +142,12 @@ final class MistralProvider extends AbstractProvider implements ImageGenerationI
             'max_tokens' => $maxTokens,
             ...$options,
         ]) as $chunk) {
-            $delta = $chunk['choices'][0]['delta'] ?? [];
+            if (!is_array($chunk) || !isset($chunk['choices']) || !is_array($chunk['choices']) || !isset($chunk['choices'][0]) || !is_array($chunk['choices'][0])) {
+                continue;
+            }
+            $delta = is_array($chunk['choices'][0]['delta'] ?? null) ? $chunk['choices'][0]['delta'] : [];
 
-            if (isset($delta['content'])) {
+            if (isset($delta['content']) && is_string($delta['content'])) {
                 $fullContent .= $delta['content'];
                 yield $delta['content'];
             }
@@ -187,15 +193,15 @@ final class MistralProvider extends AbstractProvider implements ImageGenerationI
     ): StructuredResponse {
         $jsonSchema = $schema instanceof Schema
             ? $schema->toJsonSchema()
-            : Schema::fromClass($schema)->toJsonSchema();
+            : Schema::fromClass($schema)->toJsonSchema(); // @phpstan-ignore-line
 
         $messages = is_array($prompt)
-            ? $this->formatMessages($prompt)
+            ? $prompt
             : [['role' => 'user', 'content' => $prompt]];
 
         $response = $this->request('chat.create', '/chat/completions', [
             'model' => $model,
-            'messages' => $messages,
+            'messages' => $this->formatMessages($messages),
             'response_format' => [
                 'type' => 'json_object',
             ],
@@ -215,6 +221,9 @@ final class MistralProvider extends AbstractProvider implements ImageGenerationI
     /**
      * Extract text from an image using Mistral's OCR capabilities.
      * Use models like pixtral-12b-2409 for vision tasks.
+     *
+     * @param array<string, mixed> $options
+     * @return array<string, mixed>
      */
     public function extractText(
         string $model,
@@ -260,15 +269,21 @@ final class MistralProvider extends AbstractProvider implements ImageGenerationI
             ],
         ];
 
-        $response = $this->chat(
-            model: $model,
-            messages: $messages,
-            options: $options,
-        );
+        // Use request() directly since we have formatted messages array
+        $response = $this->request('chat.create', '/chat/completions', [
+            'model' => $model,
+            'messages' => $messages,
+            ...$options,
+        ]);
 
+        $chatResponse = ChatResponse::fromArray($this->mapChatResponse($response));
+
+        // Extract text from response
         return [
-            'text' => $response->content,
-            'usage' => $response->usage?->toArray(),
+            'text' => $chatResponse->content,
+            'id' => $chatResponse->id,
+            'model' => $chatResponse->model,
+            'usage' => $chatResponse->usage?->toArray(),
         ];
     }
 
@@ -408,6 +423,10 @@ final class MistralProvider extends AbstractProvider implements ImageGenerationI
         return $chunk;
     }
 
+    /**
+     * @param array<string, mixed> $response
+     * @return array<string, mixed>
+     */
     private function mapChatResponse(array $response): array
     {
         $message = $response['choices'][0]['message'] ?? [];
@@ -422,6 +441,10 @@ final class MistralProvider extends AbstractProvider implements ImageGenerationI
         ];
     }
 
+    /**
+     * @param array<Message|array<string, mixed>> $messages
+     * @return array<int, array<string, mixed>>
+     */
     private function formatMessages(array $messages): array
     {
         return array_map(
@@ -432,6 +455,10 @@ final class MistralProvider extends AbstractProvider implements ImageGenerationI
         );
     }
 
+    /**
+     * @param array<Tool|array<string, mixed>> $tools
+     * @return array<int, array<string, mixed>>
+     */
     private function formatTools(array $tools): array
     {
         return array_map(

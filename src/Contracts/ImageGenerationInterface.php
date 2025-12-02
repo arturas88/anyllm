@@ -8,6 +8,9 @@ use AnyLLM\Responses\ImageResponse;
 
 interface ImageGenerationInterface
 {
+    /**
+     * @param array<string, mixed> $options
+     */
     public function generateImage(
         string $model,
         string $prompt,
@@ -21,6 +24,7 @@ interface ImageGenerationInterface
     /**
      * @param resource|string $image Image file path or resource
      * @param resource|string|null $mask Optional mask for inpainting
+     * @param array<string, mixed> $options
      */
     public function editImage(
         string $model,
@@ -30,6 +34,9 @@ interface ImageGenerationInterface
         array $options = [],
     ): ImageResponse;
 
+    /**
+     * @param array<string, mixed> $options
+     */
     public function upscaleImage(
         string $model,
         mixed $image,

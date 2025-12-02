@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AnyLLM\Providers\Google;
 
 use AnyLLM\Messages\Message;
+use AnyLLM\Messages\UserMessage;
 use AnyLLM\Providers\AbstractProvider;
 use AnyLLM\Responses\ChatResponse;
 use AnyLLM\Responses\StructuredResponse;
@@ -89,7 +90,7 @@ final class GoogleProvider extends AbstractProvider
     ): \Generator {
         foreach ($this->streamChat(
             model: $model,
-            messages: [['role' => 'user', 'content' => $prompt]],
+            messages: [UserMessage::create($prompt)],
             temperature: $temperature,
             maxTokens: $maxTokens,
             options: $options
@@ -176,7 +177,7 @@ final class GoogleProvider extends AbstractProvider
     ): StructuredResponse {
         $jsonSchema = $schema instanceof Schema
             ? $schema->toJsonSchema()
-            : Schema::fromClass($schema)->toJsonSchema();
+            : Schema::fromClass($schema)->toJsonSchema(); // @phpstan-ignore-line
 
         $messages = is_array($prompt)
             ? $prompt
@@ -215,6 +216,10 @@ final class GoogleProvider extends AbstractProvider
         return $chunk;
     }
 
+    /**
+     * @param array<Message|array<string, mixed>> $messages
+     * @return array<int, array<string, mixed>>
+     */
     private function formatMessages(array $messages): array
     {
         $formatted = [];
@@ -237,6 +242,10 @@ final class GoogleProvider extends AbstractProvider
         return $formatted;
     }
 
+    /**
+     * @param array<Tool|array<string, mixed>> $tools
+     * @return array<int, array<string, mixed>>
+     */
     private function formatTools(array $tools): array
     {
         $functionDeclarations = [];

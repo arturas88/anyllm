@@ -21,7 +21,12 @@ final class RedisCache implements CacheInterface
             return $default;
         }
 
-        return unserialize($value);
+        if (!is_string($value)) {
+            return $default;
+        }
+
+        $unserialized = unserialize($value);
+        return $unserialized !== false ? $unserialized : $default;
     }
 
     public function set(string $key, mixed $value, ?int $ttl = null): bool

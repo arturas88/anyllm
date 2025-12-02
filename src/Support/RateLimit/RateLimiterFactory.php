@@ -10,6 +10,8 @@ final class RateLimiterFactory
 {
     /**
      * Create a rate limiter instance from configuration.
+     *
+     * @param array<string, mixed> $config
      */
     public static function create(string $driver, array $config = []): RateLimiterInterface
     {
@@ -21,6 +23,9 @@ final class RateLimiterFactory
         };
     }
 
+    /**
+     * @param array<string, mixed> $config
+     */
     private static function createRedisLimiter(array $config): RedisRateLimiter
     {
         $redis = new \Redis();
@@ -42,6 +47,9 @@ final class RateLimiterFactory
         return new RedisRateLimiter($redis);
     }
 
+    /**
+     * @param array<string, mixed> $config
+     */
     private static function createDatabaseLimiter(array $config): DatabaseRateLimiter
     {
         $dsn = $config['dsn'] ?? self::buildDsn($config);
@@ -60,6 +68,9 @@ final class RateLimiterFactory
         );
     }
 
+    /**
+     * @param array<string, mixed> $config
+     */
     private static function buildDsn(array $config): string
     {
         $driver = $config['driver'] ?? 'mysql';

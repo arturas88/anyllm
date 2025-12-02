@@ -14,6 +14,7 @@ final class ChatResponse extends Response
     /**
      * @param array<Message> $messages
      * @param array<ToolCall> $toolCalls
+     * @param array<string, mixed>|null $raw
      */
     public function __construct(
         public readonly string $content,
@@ -28,6 +29,9 @@ final class ChatResponse extends Response
         parent::__construct($id, $model, $usage, $raw);
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     public static function fromArray(array $data): static
     {
         $toolCalls = [];
@@ -38,9 +42,10 @@ final class ChatResponse extends Response
             );
         }
 
+        $content = $data['content'] ?? '';
         return new self(
-            content: $data['content'] ?? '',
-            messages: $data['messages'] ?? [],
+            content: is_string($content) ? $content : (string) $content,
+            messages: is_array($data['messages'] ?? null) ? $data['messages'] : [],
             toolCalls: $toolCalls,
             id: $data['id'] ?? null,
             model: $data['model'] ?? null,
@@ -52,6 +57,9 @@ final class ChatResponse extends Response
         );
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     public static function fake(array $data = []): self
     {
         return new self(
@@ -73,6 +81,9 @@ final class ChatResponse extends Response
         return count($this->toolCalls) > 0;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toArray(): array
     {
         return [

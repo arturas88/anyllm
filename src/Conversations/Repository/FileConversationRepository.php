@@ -183,6 +183,9 @@ final class FileConversationRepository implements ConversationRepositoryInterfac
         }));
     }
 
+    /**
+     * @return array<Conversation>
+     */
     private function findAll(): array
     {
         $files = glob($this->storagePath . '/*.json');
@@ -215,6 +218,9 @@ final class FileConversationRepository implements ConversationRepositoryInterfac
         return $this->storagePath . '/user-' . md5($userId) . '-index.json';
     }
 
+    /**
+     * @return array<string>
+     */
     private function getUserConversationIds(string $userId): array
     {
         $path = $this->getUserIndexPath($userId);
@@ -228,7 +234,8 @@ final class FileConversationRepository implements ConversationRepositoryInterfac
             return [];
         }
 
-        return json_decode($data, true) ?? [];
+        $decoded = json_decode($data, true);
+        return is_array($decoded) ? $decoded : [];
     }
 
     private function updateUserIndex(string $userId, string $conversationId): void
@@ -297,19 +304,22 @@ final class FileConversationRepository implements ConversationRepositoryInterfac
     private function deserialize(string $data): Conversation
     {
         $array = json_decode($data, true);
+        if (!is_array($array)) {
+            throw new AnyLLMException('Invalid conversation data');
+        }
 
         $conversation = Conversation::create(
-            id: $array['id'],
-            userId: $array['userId'],
+            id: $array['id'] ?? '',
+            userId: $array['userId'] ?? null,
             config: ['title' => $array['title'] ?? null],
         );
 
-        $conversation->summary = $array['summary'];
+        $conversation->summary = $array['summary'] ?? null;
         $conversation->setTotalTokensUsed($array['totalTokens'] ?? 0);
         $conversation->setTotalCost($array['totalCost'] ?? 0.0);
-        $conversation->metadata = $array['metadata'];
-        $conversation->createdAt = new \DateTimeImmutable($array['createdAt']);
-        $conversation->updatedAt = new \DateTimeImmutable($array['updatedAt']);
+        $conversation->metadata = is_array($array['metadata'] ?? null) ? $array['metadata'] : [];
+        $conversation->createdAt = isset($array['createdAt']) ? new \DateTimeImmutable($array['createdAt']) : null;
+        $conversation->updatedAt = isset($array['updatedAt']) ? new \DateTimeImmutable($array['updatedAt']) : null;
 
         $conversation->restoreMessages(array_map(
             fn($msg) => new ConversationMessage(
@@ -319,7 +329,7 @@ final class FileConversationRepository implements ConversationRepositoryInterfac
                 conversationId: $msg['conversation_id'] ?? null,
                 organizationId: $msg['organization_id'] ?? null,
                 userId: $msg['user_id'] ?? null,
-                metadata: $msg['metadata'] ?? [],
+                metadata: is_array($msg['metadata'] ?? null) ? $msg['metadata'] : [],
                 promptTokens: $msg['prompt_tokens'] ?? 0,
                 completionTokens: $msg['completion_tokens'] ?? 0,
                 totalTokens: $msg['total_tokens'] ?? ($msg['tokens'] ?? 0),

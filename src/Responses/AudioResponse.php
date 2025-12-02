@@ -8,6 +8,9 @@ use AnyLLM\Responses\Parts\Usage;
 
 final class AudioResponse extends Response
 {
+    /**
+     * @param array<string, mixed>|null $raw
+     */
     public function __construct(
         public readonly string $data,
         public readonly string $format,
@@ -20,12 +23,18 @@ final class AudioResponse extends Response
         parent::__construct($id, $model, $usage, $raw);
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     public static function fromArray(array $data): static
     {
+        $dataValue = $data['data'] ?? $data['audio'] ?? '';
+        $formatValue = $data['format'] ?? 'mp3';
+        $isBinaryValue = $data['is_binary'] ?? false;
         return new self(
-            data: $data['data'] ?? $data['audio'] ?? '',
-            format: $data['format'] ?? 'mp3',
-            isBinary: $data['is_binary'] ?? false,
+            data: is_string($dataValue) ? $dataValue : (string) $dataValue,
+            format: is_string($formatValue) ? $formatValue : 'mp3',
+            isBinary: is_bool($isBinaryValue) ? $isBinaryValue : false,
             id: $data['id'] ?? null,
             model: $data['model'] ?? null,
             usage: isset($data['usage']) ? Usage::fromArray($data['usage']) : null,
@@ -47,6 +56,9 @@ final class AudioResponse extends Response
         return file_put_contents($path, $this->data) !== false;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toArray(): array
     {
         return [

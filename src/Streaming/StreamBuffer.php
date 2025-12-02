@@ -6,6 +6,7 @@ namespace AnyLLM\Streaming;
 
 final class StreamBuffer
 {
+    /** @var array<int, array{content: string, tokens: int, timestamp: float}> */
     private array $buffer = [];
     private int $maxSize;
     private int $flushThreshold;
@@ -77,6 +78,8 @@ final class StreamBuffer
 
     /**
      * Flush the buffer and return contents.
+     *
+     * @return array<int, array{content: string, tokens: int, timestamp: float}>
      */
     public function flush(): array
     {
@@ -87,6 +90,8 @@ final class StreamBuffer
 
     /**
      * Get the last N chunks.
+     *
+     * @return array<int, array{content: string, tokens: int, timestamp: float}>
      */
     public function getLast(int $n): array
     {
@@ -95,6 +100,8 @@ final class StreamBuffer
 
     /**
      * Get chunks within a time window.
+     *
+     * @return array<int, array{content: string, tokens: int, timestamp: float}>
      */
     public function getRecent(float $seconds): array
     {

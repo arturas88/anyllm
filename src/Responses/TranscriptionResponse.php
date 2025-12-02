@@ -8,6 +8,9 @@ use AnyLLM\Responses\Parts\Usage;
 
 final class TranscriptionResponse extends Response
 {
+    /**
+     * @param array<string, mixed>|null $raw
+     */
     public function __construct(
         public readonly string $text,
         public readonly ?string $language = null,
@@ -20,12 +23,20 @@ final class TranscriptionResponse extends Response
         parent::__construct($id, $model, $usage, $raw);
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     public static function fromArray(array $data): static
     {
+        $text = $data['text'] ?? '';
+        $language = $data['language'] ?? null;
+        $duration = $data['duration'] ?? null;
+        $textValue = is_string($text) ? $text : (is_scalar($text) ? (string) $text : '');
+        $languageValue = is_string($language) || $language === null ? $language : (is_scalar($language) ? (string) $language : null);
         return new self(
-            text: $data['text'] ?? '',
-            language: $data['language'] ?? null,
-            duration: $data['duration'] ?? null,
+            text: $textValue,
+            language: $languageValue,
+            duration: is_float($duration) || is_int($duration) || $duration === null ? ($duration === null ? null : (float) $duration) : null,
             id: $data['id'] ?? null,
             model: $data['model'] ?? null,
             usage: isset($data['usage']) ? Usage::fromArray($data['usage']) : null,
@@ -33,6 +44,9 @@ final class TranscriptionResponse extends Response
         );
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toArray(): array
     {
         return [

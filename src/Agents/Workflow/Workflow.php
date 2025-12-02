@@ -12,6 +12,7 @@ final class Workflow
 {
     /** @var array<WorkflowStep> */
     private array $steps = [];
+    /** @var array<string, mixed> */
     private array $variables = [];
     /** @var callable|null */
     private $beforeStepCallback = null;
@@ -30,6 +31,10 @@ final class Workflow
         return new self($provider, $defaultModel);
     }
 
+    /**
+     * @param Schema<mixed>|null $outputSchema
+     * @param array<Tool>|null $tools
+     */
     public function addStep(
         string $name,
         string $prompt,
@@ -82,6 +87,9 @@ final class Workflow
         return $clone;
     }
 
+    /**
+     * @param array<string, mixed> $input
+     */
     public function run(array $input = []): WorkflowResult
     {
         $context = new WorkflowContext(
@@ -155,7 +163,7 @@ final class Workflow
 
     private function interpolate(string $template, WorkflowContext $context): string
     {
-        return preg_replace_callback(
+        $result = preg_replace_callback(
             '/\{\{\s*(\w+(?:\.\w+)*)\s*\}\}/',
             function ($matches) use ($context) {
                 $varPath = $matches[1];
@@ -164,6 +172,7 @@ final class Workflow
             },
             $template,
         );
+        return $result ?? $template;
     }
 
     private function getVariableValue(WorkflowContext $context, string $varPath): mixed
@@ -212,28 +221,31 @@ final class Workflow
         }
 
         if (is_array($value)) {
-            return json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            $json = json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            return $json !== false ? $json : '[]';
         }
 
         if (is_object($value)) {
             // Try to convert object to JSON
-            try {
-                return json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-            } catch (\Throwable $e) {
-                // If JSON encoding fails, try to get a string representation
-                if (method_exists($value, '__toString')) {
-                    return (string) $value;
-                }
-                // Fallback: serialize object properties
-                return json_encode((array) $value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            $json = json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            if ($json !== false) {
+                return $json;
             }
+            // If JSON encoding fails, try to get a string representation
+            if (method_exists($value, '__toString')) {
+                return (string) $value;
+            }
+            // Fallback: serialize object properties
+            $json = json_encode((array) $value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            return $json !== false ? $json : '{}';
         }
 
-        return (string) $value;
+        return '';
     }
 
     private function camelToSnake(string $str): string
     {
-        return strtolower(preg_replace('/([a-z])([A-Z])/', '$1_$2', $str));
+        $replaced = preg_replace('/([a-z])([A-Z])/', '$1_$2', $str);
+        return strtolower($replaced ?? $str);
     }
 }

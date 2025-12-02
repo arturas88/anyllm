@@ -42,8 +42,8 @@ final class BatchProcessor
      * @param string $prompt The prompt text
      * @param float|null $temperature Optional temperature
      * @param int|null $maxTokens Optional max tokens
-     * @param array|null $stop Optional stop sequences
-     * @param array $options Additional options
+     * @param array<string>|null $stop Optional stop sequences
+     * @param array<string, mixed> $options Additional options
      * @return PromiseInterface<TextResponse>
      */
     public function generateText(
@@ -71,9 +71,9 @@ final class BatchProcessor
      * @param array<Message> $messages The conversation messages
      * @param float|null $temperature Optional temperature
      * @param int|null $maxTokens Optional max tokens
-     * @param array|null $tools Optional tools
+     * @param array<\AnyLLM\Tools\Tool>|null $tools Optional tools
      * @param string|null $toolChoice Optional tool choice
-     * @param array $options Additional options
+     * @param array<string, mixed> $options Additional options
      * @return PromiseInterface<ChatResponse>
      */
     public function chat(
@@ -103,16 +103,29 @@ final class BatchProcessor
      * @return array<string, mixed> Associative array of results with same keys
      * @throws \Throwable If any promise is rejected
      */
+    /**
+     * @param array<string, PromiseInterface> $promises
+     * @return array<string, mixed>
+     */
     public function wait(array $promises): array
     {
         $results = Utils::settle($promises)->wait();
+        if (!is_array($results)) {
+            return [];
+        }
 
         $resolved = [];
         foreach ($results as $key => $result) {
-            if ($result['state'] === 'fulfilled') {
-                $resolved[$key] = $result['value'];
+            if (!is_array($result)) {
+                continue;
+            }
+            if (($result['state'] ?? null) === 'fulfilled') {
+                $resolved[$key] = $result['value'] ?? null;
             } else {
-                throw $result['reason'];
+                $reason = $result['reason'] ?? null;
+                if ($reason instanceof \Throwable) {
+                    throw $reason;
+                }
             }
         }
 
@@ -125,16 +138,30 @@ final class BatchProcessor
      * @param array<string, PromiseInterface> $promises Associative array of promises
      * @return array<string, array{state: 'fulfilled'|'rejected', value?: mixed, reason?: \Throwable}> Results with state information
      */
+    /**
+     * @param array<string, PromiseInterface> $promises
+     * @return array<string, array{state: 'fulfilled'|'rejected', value?: mixed, reason?: \Throwable}>
+     */
     public function settle(array $promises): array
     {
         $results = Utils::settle($promises)->wait();
+        if (!is_array($results)) {
+            return [];
+        }
 
         $settled = [];
         foreach ($results as $key => $result) {
+            if (!is_array($result)) {
+                continue;
+            }
+            $state = $result['state'] ?? 'rejected';
+            if (!in_array($state, ['fulfilled', 'rejected'], true)) {
+                $state = 'rejected';
+            }
             $settled[$key] = [
-                'state' => $result['state'],
+                'state' => $state,
                 'value' => $result['value'] ?? null,
-                'reason' => $result['reason'] ?? null,
+                'reason' => ($result['reason'] ?? null) instanceof \Throwable ? $result['reason'] : null,
             ];
         }
 
@@ -177,10 +204,16 @@ final class BatchProcessor
 
         $resolved = [];
         foreach ($results as $key => $result) {
-            if ($result['state'] === 'fulfilled') {
-                $resolved[$key] = $result['value'];
+            if (!is_array($result)) {
+                continue;
+            }
+            if (($result['state'] ?? null) === 'fulfilled') {
+                $resolved[$key] = $result['value'] ?? null;
             } else {
-                throw $result['reason'];
+                $reason = $result['reason'] ?? null;
+                if ($reason instanceof \Throwable) {
+                    throw $reason;
+                }
             }
         }
 

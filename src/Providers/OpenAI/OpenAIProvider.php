@@ -9,6 +9,7 @@ use AnyLLM\Contracts\ContentModerationInterface;
 use AnyLLM\Contracts\EmbeddingInterface;
 use AnyLLM\Contracts\ImageGenerationInterface;
 use AnyLLM\Messages\Message;
+use AnyLLM\Messages\UserMessage;
 use AnyLLM\Moderation\ModerationResponse;
 use AnyLLM\Providers\AbstractProvider;
 use AnyLLM\Responses\AudioResponse;
@@ -86,7 +87,7 @@ final class OpenAIProvider extends AbstractProvider implements
     ): TextResponse {
         $response = $this->chat(
             model: $model,
-            messages: [['role' => 'user', 'content' => $prompt]],
+            messages: [UserMessage::create($prompt)],
             temperature: $temperature,
             maxTokens: $maxTokens,
             options: $options,
@@ -110,7 +111,7 @@ final class OpenAIProvider extends AbstractProvider implements
     ): \Generator {
         foreach ($this->streamChat(
             model: $model,
-            messages: [['role' => 'user', 'content' => $prompt]],
+            messages: [UserMessage::create($prompt)],
             temperature: $temperature,
             maxTokens: $maxTokens,
             options: $options
@@ -141,6 +142,9 @@ final class OpenAIProvider extends AbstractProvider implements
         return ChatResponse::fromArray($response);
     }
 
+    /**
+     * @param array<Message> $messages
+     */
     public function chatAsync(
         string $model,
         array $messages,
@@ -234,7 +238,7 @@ final class OpenAIProvider extends AbstractProvider implements
     ): StructuredResponse {
         $jsonSchema = $schema instanceof Schema
             ? $schema->toJsonSchema()
-            : Schema::fromClass($schema)->toJsonSchema();
+            : Schema::fromClass($schema)->toJsonSchema(); // @phpstan-ignore-line
 
         $messages = is_array($prompt)
             ? $this->formatMessages($prompt)
@@ -414,6 +418,10 @@ final class OpenAIProvider extends AbstractProvider implements
         return $chunk;
     }
 
+    /**
+     * @param array<string, mixed> $response
+     * @return array<string, mixed>
+     */
     private function mapChatResponse(array $response): array
     {
         $message = $response['choices'][0]['message'] ?? [];
@@ -428,6 +436,10 @@ final class OpenAIProvider extends AbstractProvider implements
         ];
     }
 
+    /**
+     * @param array<Message|array<string, mixed>> $messages
+     * @return array<int, array<string, mixed>>
+     */
     private function formatMessages(array $messages): array
     {
         return array_map(
@@ -438,6 +450,10 @@ final class OpenAIProvider extends AbstractProvider implements
         );
     }
 
+    /**
+     * @param array<Tool|array<string, mixed>> $tools
+     * @return array<int, array<string, mixed>>
+     */
     private function formatTools(array $tools): array
     {
         return array_map(

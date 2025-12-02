@@ -31,15 +31,22 @@ final class MetricsDashboard
         ]);
 
         // Latency
-        if (isset($metrics['latency.all'])) {
-            $latency = $metrics['latency.all'];
+        $latencyData = $metrics['latency.all'] ?? null;
+        if (is_array($latencyData)) {
+            $latency = $latencyData;
+            $avg = is_numeric($latency['avg'] ?? null) ? (float) $latency['avg'] : 0.0;
+            $min = is_numeric($latency['min'] ?? null) ? (float) $latency['min'] : 0.0;
+            $max = is_numeric($latency['max'] ?? null) ? (float) $latency['max'] : 0.0;
+            $p50 = is_numeric($latency['p50'] ?? null) ? (float) $latency['p50'] : 0.0;
+            $p95 = is_numeric($latency['p95'] ?? null) ? (float) $latency['p95'] : 0.0;
+            $p99 = is_numeric($latency['p99'] ?? null) ? (float) $latency['p99'] : 0.0;
             $output .= $this->renderSection("⏱️  LATENCY (ms)", [
-                'Average' => number_format($latency['avg'], 2),
-                'Min' => number_format($latency['min'], 2),
-                'Max' => number_format($latency['max'], 2),
-                'P50' => number_format($latency['p50'], 2),
-                'P95' => number_format($latency['p95'], 2),
-                'P99' => number_format($latency['p99'], 2),
+                'Average' => number_format($avg, 2),
+                'Min' => number_format($min, 2),
+                'Max' => number_format($max, 2),
+                'P50' => number_format($p50, 2),
+                'P95' => number_format($p95, 2),
+                'P99' => number_format($p99, 2),
             ]);
         }
 
@@ -88,6 +95,8 @@ final class MetricsDashboard
 
     /**
      * Render a section.
+     *
+     * @param array<string, string|int|float> $data
      */
     private function renderSection(string $title, array $data): string
     {
@@ -105,6 +114,8 @@ final class MetricsDashboard
 
     /**
      * Get metric value safely.
+     *
+     * @param array<string, mixed> $metrics
      */
     private function getValue(array $metrics, string $key): int|float
     {
@@ -112,7 +123,12 @@ final class MetricsDashboard
             return 0;
         }
 
-        return $metrics[$key]['value'] ?? 0;
+        $value = $metrics[$key];
+        if (is_array($value) && isset($value['value'])) {
+            $val = $value['value'];
+            return is_int($val) || is_float($val) ? $val : 0;
+        }
+        return is_int($value) || is_float($value) ? $value : 0;
     }
 
     /**
@@ -122,6 +138,9 @@ final class MetricsDashboard
     {
         $metrics = $this->collector->getMetrics();
         $jsonMetrics = json_encode($metrics, JSON_PRETTY_PRINT);
+        if ($jsonMetrics === false) {
+            $jsonMetrics = '{}';
+        }
 
         return <<<HTML
             <!DOCTYPE html>
@@ -196,6 +215,9 @@ final class MetricsDashboard
         return number_format($num, 2);
     }
 
+    /**
+     * @param array<string, mixed> $metrics
+     */
     private function getErrorRate(array $metrics): float
     {
         $total = $this->getValue($metrics, 'requests.total');

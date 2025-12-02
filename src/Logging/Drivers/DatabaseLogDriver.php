@@ -74,6 +74,10 @@ final class DatabaseLogDriver implements LogDriverInterface
         }
     }
 
+    /**
+     * @param array<string, mixed> $filters
+     * @return array<int, LogEntry>
+     */
     public function query(array $filters = [], int $limit = 100, int $offset = 0): array
     {
         $where = [];
@@ -130,6 +134,9 @@ final class DatabaseLogDriver implements LogDriverInterface
         return array_map(fn($row) => $this->hydrateLogEntry($row), $rows);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function analyze(?string $provider = null, ?\DateTimeInterface $start = null, ?\DateTimeInterface $end = null): array
     {
         $where = ['1=1'];
@@ -261,6 +268,9 @@ final class DatabaseLogDriver implements LogDriverInterface
         ]);
     }
 
+    /**
+     * @param array<string, mixed> $row
+     */
     private function hydrateLogEntry(array $row): LogEntry
     {
         return LogEntry::fromArray($row);

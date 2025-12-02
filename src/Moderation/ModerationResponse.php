@@ -24,12 +24,18 @@ final class ModerationResponse
         public readonly ?string $model = null,
     ) {}
 
+    /**
+     * @param array<string, mixed> $data
+     */
     public static function fromArray(array $data): self
     {
-        $results = $data['results'][0] ?? $data;
+        $results = $data;
+        if (isset($data['results']) && is_array($data['results']) && isset($data['results'][0]) && is_array($data['results'][0])) {
+            $results = $data['results'][0];
+        }
 
         return new self(
-            categories: $results['categories'] ?? [],
+            categories: is_array($results['categories'] ?? null) ? $results['categories'] : [],
             categoryScores: $results['category_scores'] ?? [],
             flagged: $results['flagged'] ?? false,
             id: $data['id'] ?? null,
@@ -63,6 +69,9 @@ final class ModerationResponse
         return array_keys(array_filter($this->categories, fn($flagged) => $flagged === true));
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toArray(): array
     {
         return [

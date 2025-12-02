@@ -17,11 +17,18 @@ final class NullLogDriver implements LogDriverInterface
         // Do nothing
     }
 
+    /**
+     * @param array<string, mixed> $filters
+     * @return array<int, LogEntry>
+     */
     public function query(array $filters = [], int $limit = 100, int $offset = 0): array
     {
         return [];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function analyze(?string $provider = null, ?\DateTimeInterface $start = null, ?\DateTimeInterface $end = null): array
     {
         return [

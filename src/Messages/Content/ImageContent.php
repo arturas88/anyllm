@@ -32,7 +32,11 @@ final readonly class ImageContent implements Content
 
     public static function fromPath(string $path): self
     {
-        $data = base64_encode(file_get_contents($path));
+        $fileContents = file_get_contents($path);
+        if ($fileContents === false) {
+            throw new \RuntimeException("Failed to read file: {$path}");
+        }
+        $data = base64_encode($fileContents);
         $mediaType = mime_content_type($path) ?: 'image/jpeg';
 
         return new self(
@@ -42,6 +46,9 @@ final readonly class ImageContent implements Content
         );
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toOpenAIFormat(): array
     {
         if ($this->isBase64) {
@@ -59,11 +66,18 @@ final readonly class ImageContent implements Content
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toAnthropicFormat(): array
     {
         if (! $this->isBase64) {
             // Anthropic requires base64 for images - fetch and convert
-            $data = base64_encode(file_get_contents($this->data));
+            $fileContents = file_get_contents($this->data);
+            if ($fileContents === false) {
+                throw new \RuntimeException("Failed to read image from URL: {$this->data}");
+            }
+            $data = base64_encode($fileContents);
             $mediaType = 'image/jpeg';
 
             return [

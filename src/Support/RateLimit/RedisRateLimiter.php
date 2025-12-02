@@ -40,12 +40,15 @@ final class RedisRateLimiter implements RateLimiterInterface
         $redisKey = $this->getKey($key);
 
         $attempts = $this->redis->incr($redisKey);
+        if ($attempts === false) {
+            return 0;
+        }
 
         if ($attempts === 1) {
             $this->redis->expire($redisKey, $decaySeconds);
         }
 
-        return $attempts;
+        return (int) $attempts;
     }
 
     public function remaining(string $key, int $maxAttempts): int
@@ -58,8 +61,11 @@ final class RedisRateLimiter implements RateLimiterInterface
     {
         $redisKey = $this->getKey($key);
         $ttl = $this->redis->ttl($redisKey);
+        if ($ttl === false) {
+            return 0;
+        }
 
-        return max(0, $ttl);
+        return max(0, (int) $ttl);
     }
 
     public function clear(string $key): void
@@ -80,7 +86,10 @@ final class RedisRateLimiter implements RateLimiterInterface
     private function getAttempts(string $key): int
     {
         $value = $this->redis->get($this->getKey($key));
-        return $value === false ? 0 : (int) $value;
+        if ($value === false || !is_string($value)) {
+            return 0;
+        }
+        return (int) $value;
     }
 
     private function getKey(string $key): string

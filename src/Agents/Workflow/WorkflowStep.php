@@ -10,6 +10,7 @@ use AnyLLM\Tools\Tool;
 final readonly class WorkflowStep
 {
     /**
+     * @param Schema<mixed>|null $outputSchema
      * @param array<Tool>|null $tools
      */
     public function __construct(

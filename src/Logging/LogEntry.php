@@ -11,7 +11,9 @@ final readonly class LogEntry
         public string $provider,
         public string $model,
         public string $method,
+        /** @var array<string, mixed> */
         public array $request,
+        /** @var array<string, mixed> */
         public array $response,
 
         // Tracing
@@ -45,20 +47,28 @@ final readonly class LogEntry
 
         // Additional data
         public ?string $error = null,
+        /** @var array<string, mixed> */
         public array $context = [],
         public ?int $durationMs = null, // Deprecated, use duration
         public ?int $tokensUsed = null, // Deprecated, use totalTokens
+        /** @var array<string, mixed> */
         public array $metadata = [],
     ) {}
 
+    /**
+     * @param array<string, mixed> $data
+     */
     public static function fromArray(array $data): self
     {
+        $provider = $data['provider'] ?? '';
+        $model = $data['model'] ?? '';
+        $method = $data['method'] ?? '';
         return new self(
-            provider: $data['provider'],
-            model: $data['model'] ?? '',
-            method: $data['method'],
-            request: json_decode($data['request'] ?? '{}', true),
-            response: json_decode($data['response'] ?? '{}', true),
+            provider: is_string($provider) ? $provider : (string) $provider,
+            model: is_string($model) ? $model : (string) $model,
+            method: is_string($method) ? $method : (string) $method,
+            request: is_array($data['request'] ?? null) ? $data['request'] : (json_decode($data['request'] ?? '{}', true) ?: []),
+            response: is_array($data['response'] ?? null) ? $data['response'] : (json_decode($data['response'] ?? '{}', true) ?: []),
             requestId: $data['request_id'] ?? null,
             traceId: $data['trace_id'] ?? null,
             parentRequestId: $data['parent_request_id'] ?? null,
@@ -77,10 +87,13 @@ final readonly class LogEntry
             userAgent: $data['user_agent'] ?? null,
             apiKeyId: $data['api_key_id'] ?? null,
             error: $data['error'] ?? null,
-            context: json_decode($data['context'] ?? '{}', true),
+            context: is_array($data['context'] ?? null) ? $data['context'] : (json_decode($data['context'] ?? '{}', true) ?: []),
         );
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toArray(): array
     {
         return [

@@ -26,11 +26,12 @@ final class DatabaseCache implements CacheInterface
 
         $result = $stmt->fetch(\PDO::FETCH_ASSOC);
 
-        if (! $result) {
+        if (! $result || !isset($result['value'])) {
             return $default;
         }
 
-        return unserialize($result['value']);
+        $unserialized = unserialize($result['value']);
+        return $unserialized !== false ? $unserialized : $default;
     }
 
     public function set(string $key, mixed $value, ?int $ttl = null): bool
@@ -99,7 +100,13 @@ final class DatabaseCache implements CacheInterface
 
         $results = [];
         while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-            $results[$row['cache_key']] = unserialize($row['value']);
+            if (!isset($row['cache_key']) || !isset($row['value'])) {
+                continue;
+            }
+            $unserialized = unserialize($row['value']);
+            if ($unserialized !== false) {
+                $results[$row['cache_key']] = $unserialized;
+            }
         }
 
         // Fill in defaults for missing keys

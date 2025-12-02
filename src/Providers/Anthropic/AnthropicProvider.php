@@ -6,6 +6,7 @@ namespace AnyLLM\Providers\Anthropic;
 
 use AnyLLM\Messages\Message;
 use AnyLLM\Messages\SystemMessage;
+use AnyLLM\Messages\UserMessage;
 use AnyLLM\Providers\AbstractProvider;
 use AnyLLM\Responses\ChatResponse;
 use AnyLLM\Responses\StructuredResponse;
@@ -65,7 +66,7 @@ final class AnthropicProvider extends AbstractProvider
     ): TextResponse {
         $response = $this->chat(
             model: $model,
-            messages: [['role' => 'user', 'content' => $prompt]],
+            messages: [UserMessage::create($prompt)],
             temperature: $temperature,
             maxTokens: $maxTokens,
             options: $options,
@@ -89,7 +90,7 @@ final class AnthropicProvider extends AbstractProvider
     ): \Generator {
         foreach ($this->streamChat(
             model: $model,
-            messages: [['role' => 'user', 'content' => $prompt]],
+            messages: [UserMessage::create($prompt)],
             temperature: $temperature,
             maxTokens: $maxTokens,
             options: $options
@@ -143,13 +144,18 @@ final class AnthropicProvider extends AbstractProvider
             'max_tokens' => $maxTokens ?? 4096,
             ...$options,
         ]) as $chunk) {
-            if ($chunk['type'] === 'content_block_delta') {
-                $delta = $chunk['delta']['text'] ?? '';
-                $fullContent .= $delta;
-                yield $delta;
+            if (!is_array($chunk) || !isset($chunk['type'])) {
+                continue;
             }
 
-            if ($chunk['type'] === 'message_delta' && isset($chunk['usage'])) {
+            if ($chunk['type'] === 'content_block_delta') {
+                $delta = '';
+                if (isset($chunk['delta']) && is_array($chunk['delta']) && isset($chunk['delta']['text']) && is_string($chunk['delta']['text'])) {
+                    $delta = $chunk['delta']['text'];
+                }
+                $fullContent .= $delta;
+                yield $delta;
+            } elseif ($chunk['type'] === 'message_delta' && isset($chunk['usage'])) {
                 $usage = $chunk['usage'];
             }
         }
@@ -170,7 +176,7 @@ final class AnthropicProvider extends AbstractProvider
     ): StructuredResponse {
         $jsonSchema = $schema instanceof Schema
             ? $schema->toJsonSchema()
-            : Schema::fromClass($schema)->toJsonSchema();
+            : Schema::fromClass($schema)->toJsonSchema(); // @phpstan-ignore-line
 
         $messages = is_array($prompt)
             ? $prompt
@@ -186,8 +192,8 @@ final class AnthropicProvider extends AbstractProvider
         $response = $this->chat(
             model: $model,
             messages: $messages,
-            tools: [$tool],
-            toolChoice: ['type' => 'tool', 'name' => $toolName],
+            tools: [$tool], // @phpstan-ignore-line
+            toolChoice: $toolName,
             options: $options,
         );
 
@@ -219,6 +225,10 @@ final class AnthropicProvider extends AbstractProvider
         return $chunk;
     }
 
+    /**
+     * @param array<string, mixed> $response
+     * @return array<string, mixed>
+     */
     private function mapMessagesResponse(array $response): array
     {
         return [
@@ -235,6 +245,10 @@ final class AnthropicProvider extends AbstractProvider
         ];
     }
 
+    /**
+     * @param array<Message|array<string, mixed>> $messages
+     * @return array{0: string|null, 1: array<int, Message|array<string, mixed>>}
+     */
     private function extractSystemMessage(array $messages): array
     {
         $system = null;
@@ -253,6 +267,9 @@ final class AnthropicProvider extends AbstractProvider
         return [$system, $filtered];
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $content
+     */
     private function extractContent(array $content): string
     {
         $text = '';
@@ -264,6 +281,10 @@ final class AnthropicProvider extends AbstractProvider
         return $text;
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $content
+     * @return array<int, array<string, mixed>>
+     */
     private function extractToolCalls(array $content): array
     {
         $toolCalls = [];
@@ -289,6 +310,10 @@ final class AnthropicProvider extends AbstractProvider
         };
     }
 
+    /**
+     * @param array<Message|array<string, mixed>> $messages
+     * @return array<int, array<string, mixed>>
+     */
     private function formatMessages(array $messages): array
     {
         return array_map(
@@ -299,6 +324,10 @@ final class AnthropicProvider extends AbstractProvider
         );
     }
 
+    /**
+     * @param array<Tool|array<string, mixed>> $tools
+     * @return array<int, array<string, mixed>>
+     */
     private function formatTools(array $tools): array
     {
         return array_map(
@@ -309,6 +338,9 @@ final class AnthropicProvider extends AbstractProvider
         );
     }
 
+    /**
+     * @return array<string, string>|array<string, array{type: string, name: string}>
+     */
     private function formatToolChoice(string $toolChoice): array
     {
         return match ($toolChoice) {

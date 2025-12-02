@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AnyLLM\Providers\XAI;
 
 use AnyLLM\Messages\Message;
+use AnyLLM\Messages\UserMessage;
 use AnyLLM\Providers\AbstractProvider;
 use AnyLLM\Responses\ChatResponse;
 use AnyLLM\Responses\StructuredResponse;
@@ -66,7 +67,7 @@ final class XAIProvider extends AbstractProvider
     ): TextResponse {
         $response = $this->chat(
             model: $model,
-            messages: [['role' => 'user', 'content' => $prompt]],
+            messages: [UserMessage::create($prompt)],
             temperature: $temperature,
             maxTokens: $maxTokens,
             options: $options,
@@ -90,7 +91,7 @@ final class XAIProvider extends AbstractProvider
     ): \Generator {
         foreach ($this->streamChat(
             model: $model,
-            messages: [['role' => 'user', 'content' => $prompt]],
+            messages: [UserMessage::create($prompt)],
             temperature: $temperature,
             maxTokens: $maxTokens,
             options: $options
@@ -140,9 +141,12 @@ final class XAIProvider extends AbstractProvider
             'stream_options' => ['include_usage' => true],
             ...$options,
         ]) as $chunk) {
-            $delta = $chunk['choices'][0]['delta'] ?? [];
+            if (!is_array($chunk) || !isset($chunk['choices']) || !is_array($chunk['choices']) || !isset($chunk['choices'][0]) || !is_array($chunk['choices'][0])) {
+                continue;
+            }
+            $delta = is_array($chunk['choices'][0]['delta'] ?? null) ? $chunk['choices'][0]['delta'] : [];
 
-            if (isset($delta['content'])) {
+            if (isset($delta['content']) && is_string($delta['content'])) {
                 $fullContent .= $delta['content'];
                 yield $delta['content'];
             }
@@ -188,7 +192,7 @@ final class XAIProvider extends AbstractProvider
     ): StructuredResponse {
         $jsonSchema = $schema instanceof Schema
             ? $schema->toJsonSchema()
-            : Schema::fromClass($schema)->toJsonSchema();
+            : Schema::fromClass($schema)->toJsonSchema(); // @phpstan-ignore-line
 
         $messages = is_array($prompt)
             ? $this->formatMessages($prompt)
@@ -237,6 +241,10 @@ final class XAIProvider extends AbstractProvider
         return $chunk;
     }
 
+    /**
+     * @param array<string, mixed> $response
+     * @return array<string, mixed>
+     */
     private function mapChatResponse(array $response): array
     {
         $message = $response['choices'][0]['message'] ?? [];
@@ -251,6 +259,10 @@ final class XAIProvider extends AbstractProvider
         ];
     }
 
+    /**
+     * @param array<Message|array<string, mixed>> $messages
+     * @return array<int, array<string, mixed>>
+     */
     private function formatMessages(array $messages): array
     {
         return array_map(
@@ -261,6 +273,10 @@ final class XAIProvider extends AbstractProvider
         );
     }
 
+    /**
+     * @param array<Tool|array<string, mixed>> $tools
+     * @return array<int, array<string, mixed>>
+     */
     private function formatTools(array $tools): array
     {
         return array_map(

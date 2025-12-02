@@ -67,6 +67,8 @@ final class TokenCountingStream
 
     /**
      * Get token statistics.
+     *
+     * @return array<string, mixed>
      */
     public function getStats(): array
     {

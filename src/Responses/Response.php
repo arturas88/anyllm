@@ -12,11 +12,18 @@ abstract class Response
         public readonly ?string $id = null,
         public readonly ?string $model = null,
         public readonly ?Usage $usage = null,
+        /** @var array<string, mixed>|null */
         public readonly ?array $raw = null,
     ) {}
 
+    /**
+     * @param array<string, mixed> $data
+     */
     abstract public static function fromArray(array $data): static;
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toArray(): array
     {
         return array_filter([

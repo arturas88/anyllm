@@ -75,7 +75,10 @@ final class DatabaseRateLimiter implements RateLimiterInterface
         $stmt->execute(['key' => $key]);
 
         $result = $stmt->fetch(\PDO::FETCH_ASSOC);
-        return $result ? max(0, (int) $result['seconds']) : 0;
+        if (!$result || !isset($result['seconds'])) {
+            return 0;
+        }
+        return max(0, (int) $result['seconds']);
     }
 
     public function clear(string $key): void
@@ -100,7 +103,10 @@ final class DatabaseRateLimiter implements RateLimiterInterface
         $stmt->execute(['key' => $key]);
 
         $result = $stmt->fetch(\PDO::FETCH_ASSOC);
-        return $result ? (int) $result['attempts'] : 0;
+        if (!$result || !isset($result['attempts'])) {
+            return 0;
+        }
+        return (int) $result['attempts'];
     }
 
     private function clearExpired(): void

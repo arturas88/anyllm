@@ -44,14 +44,16 @@ final class LoggingMiddleware implements MiddlewareInterface
             // Cost calculation would go here based on model pricing
         }
 
+        $responseData = $responseContext->response instanceof Response
+            ? ['type' => get_class($responseContext->response)]
+            : (is_array($responseContext->response) ? $responseContext->response : []);
+
         $entry = new LogEntry(
             provider: $context->provider,
             model: $context->model,
             method: $context->method,
             request: $context->params,
-            response: $responseContext->response instanceof Response
-                ? ['type' => get_class($responseContext->response)]
-                : $responseContext->response,
+            response: $responseData,
             error: $responseContext->error,
             durationMs: (int) $duration,
             tokensUsed: $tokens,

@@ -8,9 +8,13 @@ final class StreamController
 {
     private bool $paused = false;
     private bool $cancelled = false;
+    /** @var array<int, callable> */
     private array $chunkCallbacks = [];
+    /** @var array<int, callable> */
     private array $completeCallbacks = [];
+    /** @var array<int, callable> */
     private array $errorCallbacks = [];
+    /** @var array<int, callable> */
     private array $progressCallbacks = [];
 
     private int $chunksProcessed = 0;
@@ -112,8 +116,17 @@ final class StreamController
         }
 
         // Wait while paused
-        while ($this->paused && ! $this->cancelled) {
+        // Note: $this->cancelled could be modified by another thread/callback during the loop
+        while ($this->paused) {
+            // Check cancelled before sleep
+            if ($this->cancelled) { // @phpstan-ignore-line
+                return;
+            }
             usleep(100000); // 100ms
+            // Re-check cancelled after sleep (could have changed)
+            if ($this->cancelled) { // @phpstan-ignore-line
+                return;
+            }
         }
 
         $this->chunksProcessed++;
@@ -157,6 +170,8 @@ final class StreamController
 
     /**
      * Get current progress information.
+     *
+     * @return array<string, mixed>
      */
     public function getProgress(): array
     {

@@ -50,6 +50,9 @@ abstract class Message implements \JsonSerializable
         return $this->content;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toProviderFormat(string $provider): array
     {
         return match ($provider) {
@@ -60,6 +63,9 @@ abstract class Message implements \JsonSerializable
         };
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected function toOpenAIFormat(): array
     {
         $formatted = ['role' => $this->role->value];
@@ -82,6 +88,9 @@ abstract class Message implements \JsonSerializable
         return $formatted;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected function toAnthropicFormat(): array
     {
         $formatted = ['role' => $this->mapRoleForAnthropic()];
@@ -100,6 +109,9 @@ abstract class Message implements \JsonSerializable
         return $formatted;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     protected function toGoogleFormat(): array
     {
         // Google Gemini format

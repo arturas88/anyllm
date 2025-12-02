@@ -156,6 +156,9 @@ final class RedisConversationRepository implements ConversationRepositoryInterfa
         }, $ids)));
     }
 
+    /**
+     * @param array<string, mixed> $metadata
+     */
     public function updateMetadata(string $id, array $metadata): bool
     {
         $conversation = $this->find($id);
@@ -238,19 +241,22 @@ final class RedisConversationRepository implements ConversationRepositoryInterfa
     private function deserialize(string $data): Conversation
     {
         $array = json_decode($data, true);
+        if (!is_array($array)) {
+            throw new AnyLLMException('Invalid conversation data');
+        }
 
         $conversation = Conversation::create(
-            id: $array['id'],
-            userId: $array['userId'],
+            id: $array['id'] ?? '',
+            userId: $array['userId'] ?? null,
             config: ['title' => $array['title'] ?? null],
         );
 
-        $conversation->summary = $array['summary'];
+        $conversation->summary = $array['summary'] ?? null;
         $conversation->setTotalTokensUsed($array['totalTokens'] ?? 0);
         $conversation->setTotalCost($array['totalCost'] ?? 0.0);
-        $conversation->metadata = $array['metadata'];
-        $conversation->createdAt = new \DateTimeImmutable($array['createdAt']);
-        $conversation->updatedAt = new \DateTimeImmutable($array['updatedAt']);
+        $conversation->metadata = is_array($array['metadata'] ?? null) ? $array['metadata'] : [];
+        $conversation->createdAt = isset($array['createdAt']) ? new \DateTimeImmutable($array['createdAt']) : null;
+        $conversation->updatedAt = isset($array['updatedAt']) ? new \DateTimeImmutable($array['updatedAt']) : null;
 
         $conversation->restoreMessages(array_map(
             fn($msg) => new ConversationMessage(
@@ -260,7 +266,7 @@ final class RedisConversationRepository implements ConversationRepositoryInterfa
                 conversationId: $msg['conversation_id'] ?? null,
                 organizationId: $msg['organization_id'] ?? null,
                 userId: $msg['user_id'] ?? null,
-                metadata: $msg['metadata'] ?? [],
+                metadata: is_array($msg['metadata'] ?? null) ? $msg['metadata'] : [],
                 promptTokens: $msg['prompt_tokens'] ?? 0,
                 completionTokens: $msg['completion_tokens'] ?? 0,
                 totalTokens: $msg['total_tokens'] ?? ($msg['tokens'] ?? 0),

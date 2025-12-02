@@ -65,6 +65,10 @@ final class FileLogDriver implements LogDriverInterface
         $this->writeDetailedLog($entry);
     }
 
+    /**
+     * @param array<string, mixed> $filters
+     * @return array<int, LogEntry>
+     */
     public function query(array $filters = [], int $limit = 100, int $offset = 0): array
     {
         $entries = [];
@@ -97,7 +101,7 @@ final class FileLogDriver implements LogDriverInterface
                 }
 
                 $data = json_decode($line, true);
-                if (! $data) {
+                if (!is_array($data)) {
                     continue;
                 }
 
@@ -122,6 +126,9 @@ final class FileLogDriver implements LogDriverInterface
         return $entries;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function analyze(?string $provider = null, ?\DateTimeInterface $start = null, ?\DateTimeInterface $end = null): array
     {
         $entries = $this->query();
@@ -242,6 +249,10 @@ final class FileLogDriver implements LogDriverInterface
         file_put_contents($detailFile, json_encode($data) . "\n", FILE_APPEND | LOCK_EX);
     }
 
+    /**
+     * @param array<string, mixed> $data
+     * @param array<string, mixed> $filters
+     */
     private function matchesFilters(array $data, array $filters): bool
     {
         if (isset($filters['provider']) && $data['provider'] !== $filters['provider']) {
@@ -266,14 +277,23 @@ final class FileLogDriver implements LogDriverInterface
         return true;
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     private function hydrateLogEntry(array $data): LogEntry
     {
+        $provider = $data['provider'] ?? '';
+        $model = $data['model'] ?? '';
+        $method = $data['method'] ?? '';
+        $providerValue = is_string($provider) ? $provider : (is_scalar($provider) ? (string) $provider : '');
+        $modelValue = is_string($model) ? $model : (is_scalar($model) ? (string) $model : '');
+        $methodValue = is_string($method) ? $method : (is_scalar($method) ? (string) $method : '');
         return new LogEntry(
-            provider: $data['provider'],
-            model: $data['model'],
-            method: $data['method'],
-            request: $data['request'] ?? [],
-            response: $data['response'] ?? [],
+            provider: $providerValue,
+            model: $modelValue,
+            method: $methodValue,
+            request: is_array($data['request'] ?? null) ? $data['request'] : [],
+            response: is_array($data['response'] ?? null) ? $data['response'] : [],
             error: $data['error'] ?? null,
             durationMs: $data['duration_ms'] ?? 0,
             tokensUsed: $data['tokens_used'] ?? 0,

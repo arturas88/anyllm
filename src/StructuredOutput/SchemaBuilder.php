@@ -6,7 +6,9 @@ namespace AnyLLM\StructuredOutput;
 
 final class SchemaBuilder
 {
+    /** @var array<string, array<string, mixed>> */
     private array $properties = [];
+    /** @var array<int, string> */
     private array $required = [];
     private ?string $description = null;
 
@@ -20,6 +22,9 @@ final class SchemaBuilder
         return $this;
     }
 
+    /**
+     * @param array<int|string, mixed>|null $enum
+     */
     public function property(
         string $name,
         string $type,
@@ -66,6 +71,9 @@ final class SchemaBuilder
         return $this->property($name, 'boolean', $description, $required);
     }
 
+    /**
+     * @param array<int|string, mixed> $values
+     */
     public function enum(string $name, array $values, ?string $description = null, bool $required = true): self
     {
         return $this->property($name, 'string', $description, $required, $values);
@@ -104,6 +112,9 @@ final class SchemaBuilder
         return $this;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function build(): array
     {
         return array_filter([
@@ -115,6 +126,9 @@ final class SchemaBuilder
         ], fn($v) => $v !== null);
     }
 
+    /**
+     * @return Schema<mixed>
+     */
     public function toSchema(): Schema
     {
         return Schema::fromJsonSchema($this->build());

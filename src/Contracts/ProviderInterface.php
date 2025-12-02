@@ -22,6 +22,10 @@ interface ProviderInterface
      */
     public function listModels(): array;
 
+    /**
+     * @param array<string>|null $stop
+     * @param array<string, mixed> $options
+     */
     public function generateText(
         string $model,
         string $prompt,
@@ -32,6 +36,7 @@ interface ProviderInterface
     ): TextResponse;
 
     /**
+     * @param array<string, mixed> $options
      * @return \Generator<int, string, mixed, TextResponse>
      */
     public function streamText(
@@ -45,6 +50,7 @@ interface ProviderInterface
     /**
      * @param array<Message> $messages
      * @param array<Tool>|null $tools
+     * @param array<string, mixed> $options
      */
     public function chat(
         string $model,
@@ -58,6 +64,7 @@ interface ProviderInterface
 
     /**
      * @param array<Message> $messages
+     * @param array<string, mixed> $options
      * @return \Generator<int, string, mixed, ChatResponse>
      */
     public function streamChat(
@@ -70,7 +77,9 @@ interface ProviderInterface
 
     /**
      * @template T
+     * @param array<string, mixed>|string $prompt
      * @param Schema<T>|class-string<T> $schema
+     * @param array<string, mixed> $options
      * @return StructuredResponse<T>
      */
     public function generateObject(
@@ -85,6 +94,8 @@ interface ProviderInterface
     /**
      * Generate text asynchronously (returns a Promise).
      *
+     * @param array<string>|null $stop
+     * @param array<string, mixed> $options
      * @return \GuzzleHttp\Promise\PromiseInterface<TextResponse>
      */
     public function generateTextAsync(
@@ -101,6 +112,7 @@ interface ProviderInterface
      *
      * @param array<Message> $messages
      * @param array<Tool>|null $tools
+     * @param array<string, mixed> $options
      * @return \GuzzleHttp\Promise\PromiseInterface<ChatResponse>
      */
     public function chatAsync(

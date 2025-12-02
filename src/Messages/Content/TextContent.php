@@ -15,6 +15,9 @@ final readonly class TextContent implements Content
         return new self($text);
     }
 
+    /**
+     * @return array<string, string>
+     */
     public function toOpenAIFormat(): array
     {
         return [
@@ -23,6 +26,9 @@ final readonly class TextContent implements Content
         ];
     }
 
+    /**
+     * @return array<string, string>
+     */
     public function toAnthropicFormat(): array
     {
         return [

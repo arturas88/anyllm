@@ -17,6 +17,7 @@ use ReflectionNamedType;
 final class Schema
 {
     /**
+     * @param array<string, mixed> $jsonSchema
      * @param class-string<T>|null $targetClass
      */
     private function __construct(
@@ -25,12 +26,13 @@ final class Schema
     ) {}
 
     /**
-     * @template TClass
+     * @template TClass of object
      * @param class-string<TClass> $class
      * @return self<TClass>
      */
     public static function fromClass(string $class): self
     {
+        /** @var class-string<TClass> $class */
         $reflection = new ReflectionClass($class);
         $properties = [];
         $required = [];
@@ -63,6 +65,10 @@ final class Schema
         );
     }
 
+    /**
+     * @param array<string, mixed> $schema
+     * @return self<mixed>
+     */
     public static function fromJsonSchema(array $schema): self
     {
         return new self(jsonSchema: $schema);
@@ -74,22 +80,43 @@ final class Schema
     }
 
     /**
-     * @return T|array
+     * @param array<string, mixed>|mixed $data
+     * @return T|array<string, mixed>
      */
     public function parse(mixed $data): mixed
     {
         if ($this->targetClass === null) {
+            return is_array($data) ? $data : [];
+        }
+
+        if (!is_array($data)) {
             return $data;
         }
 
-        return self::hydrate($this->targetClass, $data);
+        // $this->targetClass is ?string (property type), already checked above
+        $targetClass = $this->targetClass;
+        // $targetClass is string when not null (from property type ?string)
+        if (!class_exists($targetClass)) {
+            return $data;
+        }
+
+        /** @var class-string<T> $targetClass */
+        /** @var T */
+        $result = self::hydrate($targetClass, $data); // @phpstan-ignore-line
+        return $result;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toJsonSchema(): array
     {
         return $this->jsonSchema;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private static function propertyToSchema(ReflectionProperty $property): array
     {
         $type = $property->getType();
@@ -170,6 +197,9 @@ final class Schema
         return $schema;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private static function typeToSchema(?\ReflectionType $type, bool $allowsNull = false): array
     {
         if ($type === null) {
@@ -205,6 +235,9 @@ final class Schema
         return $allowsNull ? ['type' => ['string', 'null']] : ['type' => 'string'];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private static function objectTypeToSchema(string $className): array
     {
         if (class_exists($className)) {
@@ -216,12 +249,14 @@ final class Schema
     }
 
     /**
-     * @template TClass
+     * @template TClass of object
      * @param class-string<TClass> $class
+     * @param array<string, mixed> $data
      * @return TClass
      */
     private static function hydrate(string $class, array $data): object
     {
+        /** @var class-string<TClass> $class */
         $reflection = new ReflectionClass($class);
         $instance = $reflection->newInstanceWithoutConstructor();
 
@@ -247,7 +282,9 @@ final class Schema
                 // Handle nested objects
                 $type = $property->getType();
                 if ($type instanceof ReflectionNamedType && ! $type->isBuiltin() && is_array($value)) {
-                    $value = self::hydrate($type->getName(), $value);
+                    /** @var class-string $className */
+                    $className = $type->getName();
+                    $value = self::hydrate($className, $value);
                 }
 
                 // Handle arrays of objects
@@ -272,6 +309,7 @@ final class Schema
 
     private static function camelToSnake(string $str): string
     {
-        return strtolower(preg_replace('/([a-z])([A-Z])/', '$1_$2', $str));
+        $replaced = preg_replace('/([a-z])([A-Z])/', '$1_$2', $str);
+        return strtolower($replaced ?? $str);
     }
 }

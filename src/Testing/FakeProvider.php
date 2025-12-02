@@ -15,8 +15,9 @@ use GuzzleHttp\Promise\FulfilledPromise;
 
 final class FakeProvider implements ProviderInterface
 {
-    /** @var array<array{method: string, params: array}> */
+    /** @var array<int, array{method: string, params: array<string, mixed>}> */
     private array $recorded = [];
+    /** @var array<int, mixed> */
     private array $responses = [];
     private int $responseIndex = 0;
 
@@ -30,9 +31,12 @@ final class FakeProvider implements ProviderInterface
         return true;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function listModels(): array
     {
-        return ['fake-model'];
+        return ['fake-model' => 'fake-model'];
     }
 
     public function withResponses(mixed ...$responses): self
@@ -58,6 +62,10 @@ final class FakeProvider implements ProviderInterface
         return $this;
     }
 
+    /**
+     * @param array<string>|null $stop
+     * @param array<string, mixed> $options
+     */
     public function generateText(
         string $model,
         string $prompt,
@@ -71,9 +79,16 @@ final class FakeProvider implements ProviderInterface
             'params' => compact('model', 'prompt', 'temperature', 'maxTokens', 'stop', 'options'),
         ];
 
-        return $this->nextResponse() ?? TextResponse::fake(['text' => 'Fake response']);
+        $response = $this->nextResponse();
+        if ($response instanceof TextResponse) {
+            return $response;
+        }
+        return TextResponse::fake(['text' => 'Fake response']);
     }
 
+    /**
+     * @param array<string, mixed> $options
+     */
     public function streamText(
         string $model,
         string $prompt,
@@ -93,6 +108,9 @@ final class FakeProvider implements ProviderInterface
         return TextResponse::fake(['text' => 'Fake streaming response']);
     }
 
+    /**
+     * @param array<string, mixed> $options
+     */
     public function chat(
         string $model,
         array $messages,
@@ -126,6 +144,10 @@ final class FakeProvider implements ProviderInterface
         return ChatResponse::fake(['content' => 'Fake chat response']);
     }
 
+    /**
+     * @param array<string>|null $stop
+     * @param array<string, mixed> $options
+     */
     public function generateTextAsync(
         string $model,
         string $prompt,
@@ -139,11 +161,17 @@ final class FakeProvider implements ProviderInterface
             'params' => compact('model', 'prompt', 'temperature', 'maxTokens', 'stop', 'options'),
         ];
 
-        $response = $this->nextResponse() ?? TextResponse::fake(['text' => 'Fake async response']);
+        $response = $this->nextResponse();
+        if (!($response instanceof TextResponse)) {
+            $response = TextResponse::fake(['text' => 'Fake async response']);
+        }
 
         return new FulfilledPromise($response);
     }
 
+    /**
+     * @param array<string, mixed> $options
+     */
     public function chatAsync(
         string $model,
         array $messages,
@@ -178,6 +206,9 @@ final class FakeProvider implements ProviderInterface
         return new FulfilledPromise(ChatResponse::fake(['content' => 'Fake async chat response']));
     }
 
+    /**
+     * @param array<string, mixed> $options
+     */
     public function streamChat(
         string $model,
         array $messages,
@@ -197,6 +228,10 @@ final class FakeProvider implements ProviderInterface
         return ChatResponse::fake(['content' => 'Fake chat streaming']);
     }
 
+    /**
+     * @param array<string, mixed>|string $prompt
+     * @param array<string, mixed> $options
+     */
     public function generateObject(
         string $model,
         string|array $prompt,
@@ -210,7 +245,11 @@ final class FakeProvider implements ProviderInterface
             'params' => compact('model', 'prompt', 'schema', 'schemaName', 'schemaDescription', 'options'),
         ];
 
-        return $this->nextResponse() ?? StructuredResponse::fromArray(['object' => []], $schema);
+        $response = $this->nextResponse();
+        if ($response instanceof StructuredResponse) {
+            return $response;
+        }
+        return StructuredResponse::fromArray(['object' => []], $schema);
     }
 
     public function getHttpClient(): HttpClientInterface
@@ -267,6 +306,9 @@ final class FakeProvider implements ProviderInterface
         }
     }
 
+    /**
+     * @return array<int, array{method: string, params: array<string, mixed>}>
+     */
     public function getRecordedCalls(): array
     {
         return $this->recorded;

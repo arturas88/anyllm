@@ -6,6 +6,9 @@ namespace AnyLLM\Agents\Workflow;
 
 final class WorkflowContext
 {
+    /**
+     * @param array<string, mixed> $variables
+     */
     public function __construct(
         private array $variables = [],
     ) {}
@@ -25,6 +28,9 @@ final class WorkflowContext
         return array_key_exists($name, $this->variables);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function getAllVariables(): array
     {
         return $this->variables;
