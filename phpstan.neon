@@ -1,0 +1,9 @@
+parameters:
+    level: 3
+    paths:
+        - src
+    memoryLimitFile: 2G
+    ignoreErrors:
+        - '#PHPDoc tag @return contains generic type#'
+        - '#but interface.*is not generic#'
+

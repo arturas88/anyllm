@@ -38,11 +38,11 @@ fi
 
 # 2. Run PHPStan (static analysis)
 echo -e "\n${YELLOW}🔬 Running PHPStan...${NC}"
-if vendor/bin/phpstan analyse src --memory-limit=2G > /dev/null 2>&1; then
+if vendor/bin/phpstan analyse --memory-limit=2G > /dev/null 2>&1; then
     echo -e "${GREEN}✅ PHPStan check passed${NC}"
 else
     echo -e "${RED}❌ PHPStan check failed!${NC}"
-    vendor/bin/phpstan analyse src --memory-limit=2G
+    vendor/bin/phpstan analyse --memory-limit=2G
     exit 1
 fi
 
