@@ -364,8 +364,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0] - 2025-12-02
+
+### Changed
+- **Type Safety Improvements**
+  - Upgraded PHPStan from level 2 to level 6
+  - Added comprehensive type hints throughout the codebase
+  - Improved type annotations for arrays, callables, and return types
+  - Added null checks and proper type guards where needed
+  - Fixed `json_encode()` return value handling (can return false)
+  - Enhanced type safety across all providers, responses, and core classes
+
+- **Testing Infrastructure**
+  - Migrated from PHPUnit to Pest for better compatibility and developer experience
+  - Added code coverage filters for more accurate reporting
+  - Improved CI configuration and test execution
+  - Enhanced test setup and validation
+
+- **Developer Experience**
+  - Added pre-push git hooks for automated code quality checks
+  - Improved code style consistency across the codebase
+  - Enhanced error messages and validation
+  - Better CI/CD pipeline configuration
+
+### Fixed
+- Fixed missing async methods (`generateTextAsync`, `chatAsync`) in `FakeProvider`
+  - Resolves CI pipeline failures and ensures full interface compliance
+- Fixed PHPUnit configuration compatibility issues with PHPUnit 10.0 and 10.5
+- Fixed various PHPStan type errors and warnings
+- Improved error handling and edge case coverage
+
+### Added
+- Pre-push git hooks script (`scripts/pre-push-check.sh`)
+- Git hooks setup script (`scripts/setup-git-hooks.sh`)
+- Enhanced PHPStan configuration with stricter type checking
+- Improved code coverage reporting
+
+---
+
 ## Version History
 
+- **1.2.0** (2025-12-02) - Type safety improvements, PHPStan level 6, Pest migration, bug fixes
 - **1.1.0** (2025-12-02) - Agents, Workflows, Async/Promise support, Batch Processing, Content Moderation
 - **1.0.1** (2025-12-01) - Documentation improvements, bug fixes, and code quality enhancements
 - **1.0.0** (2025-12-01) - Initial production-ready release
