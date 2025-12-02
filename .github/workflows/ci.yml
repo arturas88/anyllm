@@ -41,9 +41,9 @@ jobs:
       - name: Execute tests
         run: |
           if [ "${{ matrix.php }}" == "8.2" ] && [ "${{ matrix.stability }}" == "prefer-stable" ]; then
-            vendor/bin/phpunit --coverage-text --coverage-clover=coverage.xml
+            vendor/bin/pest --coverage --coverage-text --coverage-clover=coverage.xml --min=80
           else
-            vendor/bin/phpunit
+            vendor/bin/pest
           fi
 
       - name: Upload coverage to Codecov

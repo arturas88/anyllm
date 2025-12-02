@@ -85,8 +85,8 @@
         "ext-memcached": "Required for Memcached caching"
     },
     "scripts": {
-        "test": "phpunit",
-        "test-coverage": "phpunit --coverage-html coverage",
+        "test": "pest",
+        "test-coverage": "pest --coverage --coverage-html coverage",
         "cs-fix": "php-cs-fixer fix",
         "cs-check": "php-cs-fixer fix --dry-run --diff",
         "phpstan": "phpstan analyse --memory-limit=2G",
