@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AnyLLM\Agents\Workflow;
 
 use AnyLLM\StructuredOutput\Schema;
+use AnyLLM\Tools\Tool;
 
 final readonly class WorkflowStep
 {
