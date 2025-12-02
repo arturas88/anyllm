@@ -20,6 +20,7 @@ abstract class Message implements \JsonSerializable
 
     public static function create(string $content): static
     {
+        /** @phpstan-ignore-next-line */
         return new static(
             role: static::getRole(),
             content: $content,
@@ -31,6 +32,7 @@ abstract class Message implements \JsonSerializable
      */
     public static function withContent(array $content): static
     {
+        /** @phpstan-ignore-next-line */
         return new static(
             role: static::getRole(),
             content: $content,

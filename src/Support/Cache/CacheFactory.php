@@ -30,7 +30,6 @@ final class CacheFactory
             throw new ValidationException('Redis extension is not installed. Install it with: pecl install redis');
         }
 
-        /** @phpstan-ignore-next-line */
         $redis = new \Redis();
 
         $host = $config['host'] ?? '127.0.0.1';
@@ -59,7 +58,6 @@ final class CacheFactory
             throw new ValidationException('Memcached extension is not installed. Install it with: pecl install memcached');
         }
 
-        /** @phpstan-ignore-next-line */
         $memcached = new \Memcached();
 
         $servers = $config['servers'] ?? [['127.0.0.1', 11211]];
