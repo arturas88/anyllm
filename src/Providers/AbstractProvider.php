@@ -10,6 +10,9 @@ use AnyLLM\Contracts\ProviderInterface;
 use AnyLLM\Http\HttpClient;
 use AnyLLM\Http\HttpClientFactory;
 use AnyLLM\Http\RetryHandler;
+use AnyLLM\Responses\ChatResponse;
+use AnyLLM\Responses\TextResponse;
+use GuzzleHttp\Promise\PromiseInterface;
 
 abstract class AbstractProvider implements ProviderInterface
 {
@@ -112,5 +115,69 @@ abstract class AbstractProvider implements ProviderInterface
     protected function getDefaultModel(): ?string
     {
         return $this->config->options['default_model'] ?? null;
+    }
+
+    public function generateTextAsync(
+        string $model,
+        string $prompt,
+        ?float $temperature = null,
+        ?int $maxTokens = null,
+        ?array $stop = null,
+        array $options = [],
+    ): PromiseInterface {
+        return $this->chatAsync(
+            model: $model,
+            messages: [['role' => 'user', 'content' => $prompt]],
+            temperature: $temperature,
+            maxTokens: $maxTokens,
+            options: $options,
+        )->then(function (ChatResponse $response) {
+            return TextResponse::fromArray([
+                'text' => $response->content,
+                'id' => $response->id,
+                'model' => $response->model,
+                'usage' => $response->usage?->toArray(),
+                'finish_reason' => $response->finishReason?->value,
+            ]);
+        });
+    }
+
+    public function chatAsync(
+        string $model,
+        array $messages,
+        ?float $temperature = null,
+        ?int $maxTokens = null,
+        ?array $tools = null,
+        ?string $toolChoice = null,
+        array $options = [],
+    ): PromiseInterface {
+        // Default implementation - providers can override for custom behavior
+        // This uses the same request structure as the sync chat() method
+        $mappedRequest = $this->mapRequest('chat.create', [
+            'model' => $model,
+            'messages' => $messages,
+            'temperature' => $temperature,
+            'max_tokens' => $maxTokens,
+            'tools' => $tools,
+            'tool_choice' => $toolChoice,
+            ...$options,
+        ]);
+
+        $endpoint = $this->getChatEndpoint();
+
+        return $this->http->postAsync($endpoint, $mappedRequest)
+            ->then(function (array $response) {
+                $mappedResponse = $this->mapResponse('chat.create', $response);
+                return ChatResponse::fromArray($mappedResponse);
+            });
+    }
+
+    /**
+     * Get the chat endpoint for this provider.
+     * Override in provider implementations if different endpoint is needed.
+     */
+    protected function getChatEndpoint(): string
+    {
+        return '/chat/completions';
     }
 }

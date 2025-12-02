@@ -13,6 +13,10 @@ final class Workflow
     /** @var array<WorkflowStep> */
     private array $steps = [];
     private array $variables = [];
+    /** @var callable|null */
+    private $beforeStepCallback = null;
+    /** @var callable|null */
+    private $afterStepCallback = null;
 
     public function __construct(
         private readonly ProviderInterface $provider,
@@ -50,6 +54,34 @@ final class Workflow
         return $this;
     }
 
+    /**
+     * Set a callback that will be called before each step execution.
+     * The callback receives: string $stepName, string $prompt, WorkflowContext $context
+     * Return true to proceed, false to skip, or throw an exception to abort.
+     *
+     * @param callable(string, string, WorkflowContext): bool $callback
+     */
+    public function withBeforeStep(callable $callback): self
+    {
+        $clone = clone $this;
+        $clone->beforeStepCallback = $callback;
+        return $clone;
+    }
+
+    /**
+     * Set a callback that will be called after each step execution.
+     * The callback receives: string $stepName, StepResult $result, WorkflowContext $context
+     * Return a modified StepResult, or null to use original.
+     *
+     * @param callable(string, StepResult, WorkflowContext): StepResult|null $callback
+     */
+    public function withAfterStep(callable $callback): self
+    {
+        $clone = clone $this;
+        $clone->afterStepCallback = $callback;
+        return $clone;
+    }
+
     public function run(array $input = []): WorkflowResult
     {
         $context = new WorkflowContext(
@@ -59,7 +91,26 @@ final class Workflow
         $stepResults = [];
 
         foreach ($this->steps as $step) {
+            // Human in the loop: request approval before step execution
+            if ($this->beforeStepCallback !== null) {
+                $prompt = $this->interpolate($step->prompt, $context);
+                $shouldProceed = ($this->beforeStepCallback)($step->name, $prompt, $context);
+                if ($shouldProceed === false) {
+                    // Skip this step
+                    continue;
+                }
+            }
+
             $result = $this->executeStep($step, $context);
+
+            // Human in the loop: allow review/modification after step execution
+            if ($this->afterStepCallback !== null) {
+                $modifiedResult = ($this->afterStepCallback)($step->name, $result, $context);
+                if ($modifiedResult !== null) {
+                    $result = $modifiedResult;
+                }
+            }
+
             $stepResults[$step->name] = $result;
             $context->setVariable($step->name, $result->output);
         }
@@ -105,9 +156,84 @@ final class Workflow
     private function interpolate(string $template, WorkflowContext $context): string
     {
         return preg_replace_callback(
-            '/\{\{\s*(\w+)\s*\}\}/',
-            fn($matches) => (string) $context->getVariable($matches[1]),
+            '/\{\{\s*(\w+(?:\.\w+)*)\s*\}\}/',
+            function ($matches) use ($context) {
+                $varPath = $matches[1];
+                $value = $this->getVariableValue($context, $varPath);
+                return $this->valueToString($value);
+            },
             $template,
         );
+    }
+
+    private function getVariableValue(WorkflowContext $context, string $varPath): mixed
+    {
+        $parts = explode('.', $varPath);
+        $varName = $parts[0];
+        $value = $context->getVariable($varName);
+
+        if ($value === null) {
+            return null;
+        }
+
+        // Handle nested property access (e.g., analyze.insights)
+        for ($i = 1; $i < count($parts); $i++) {
+            if (is_object($value)) {
+                $property = $parts[$i];
+                if (property_exists($value, $property)) {
+                    $value = $value->$property;
+                } else {
+                    // Try camelCase to snake_case conversion
+                    $snakeProperty = $this->camelToSnake($property);
+                    if (property_exists($value, $snakeProperty)) {
+                        $value = $value->$snakeProperty;
+                    } else {
+                        return null;
+                    }
+                }
+            } elseif (is_array($value) && isset($value[$parts[$i]])) {
+                $value = $value[$parts[$i]];
+            } else {
+                return null;
+            }
+        }
+
+        return $value;
+    }
+
+    private function valueToString(mixed $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        if (is_string($value) || is_numeric($value) || is_bool($value)) {
+            return (string) $value;
+        }
+
+        if (is_array($value)) {
+            return json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        }
+
+        if (is_object($value)) {
+            // Try to convert object to JSON
+            try {
+                return json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            } catch (\Throwable $e) {
+                // If JSON encoding fails, try to get a string representation
+                if (method_exists($value, '__toString')) {
+                    return (string) $value;
+                }
+                // Fallback: serialize object properties
+                return json_encode((array) $value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            }
+        }
+
+        return (string) $value;
+    }
+
+    private function camelToSnake(string $str): string
+    {
+        return strtolower(preg_replace('/([a-z])([A-Z])/', '$1_$2', $str));
     }
 }

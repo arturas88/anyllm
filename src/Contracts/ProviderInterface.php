@@ -82,5 +82,36 @@ interface ProviderInterface
         array $options = [],
     ): StructuredResponse;
 
+    /**
+     * Generate text asynchronously (returns a Promise).
+     * 
+     * @return \GuzzleHttp\Promise\PromiseInterface<TextResponse>
+     */
+    public function generateTextAsync(
+        string $model,
+        string $prompt,
+        ?float $temperature = null,
+        ?int $maxTokens = null,
+        ?array $stop = null,
+        array $options = [],
+    ): \GuzzleHttp\Promise\PromiseInterface;
+
+    /**
+     * Chat asynchronously (returns a Promise).
+     * 
+     * @param array<Message> $messages
+     * @param array<Tool>|null $tools
+     * @return \GuzzleHttp\Promise\PromiseInterface<ChatResponse>
+     */
+    public function chatAsync(
+        string $model,
+        array $messages,
+        ?float $temperature = null,
+        ?int $maxTokens = null,
+        ?array $tools = null,
+        ?string $toolChoice = null,
+        array $options = [],
+    ): \GuzzleHttp\Promise\PromiseInterface;
+
     public function getHttpClient(): HttpClientInterface;
 }

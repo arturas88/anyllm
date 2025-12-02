@@ -288,15 +288,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Planned for Future Releases
 - Vector store integrations (Pinecone, Weaviate, Qdrant, Chroma)
 - Laravel integration package
-- Async/Promise support
-- Batch request processing
-- Content moderation
 - Additional provider integrations
+
+---
+
+## [1.1.0] - 2025-12-02
+
+### Added
+- **Async/Promise Support**
+  - Async methods for all providers (`generateTextAsync`, `chatAsync`)
+  - Non-blocking API calls using Guzzle promises
+  - Promise chaining and error handling
+  - Compatible with existing synchronous methods
+  
+- **Batch Request Processing**
+  - `BatchProcessor` class for concurrent request processing
+  - Process multiple requests in parallel
+  - Significant performance improvements for bulk operations
+  - Support for timeout handling and error recovery
+  
+- **Content Moderation**
+  - `ContentModerationInterface` for providers supporting moderation
+  - `ModerationResponse` class with category flags and scores
+  - OpenAI moderation API integration
+  - Batch moderation support
+  - Async moderation methods
+
+- **Agents System**
+  - `Agent` class for autonomous multi-iteration problem solving
+  - Automatic tool/function calling integration
+  - Configurable maximum iterations
+  - Human-in-the-loop callbacks:
+    - `withBeforeToolExecution()` - Request approval before tool execution
+    - `withAfterToolExecution()` - Review/modify tool execution results
+    - `withBeforeFinalResponse()` - Review/modify final response
+  - Tool execution tracking with duration metrics
+  - Usage aggregation across iterations
+  - `AgentResult` with complete execution history
+
+- **Workflows System**
+  - `Workflow` class for multi-step orchestration
+  - Variable interpolation with `{{variable}}` syntax
+  - Nested property access (e.g., `{{step.property}}`)
+  - Per-step model configuration
+  - Per-step structured output support
+  - Per-step tool/function calling
+  - Human-in-the-loop callbacks:
+    - `withBeforeStep()` - Request approval before step execution
+    - `withAfterStep()` - Review/modify step results
+  - Context passing between steps
+  - `WorkflowResult` with step-by-step results
+  - Pre-set workflow variables
+
+- **Database Migrations**
+  - `create_llm_agent_executions_table.php` - Track agent execution history
+  - `create_llm_workflow_executions_table.php` - Track workflow execution history
+  - `create_llm_approval_requests_table.php` - Store approval requests
+  - `create_llm_approval_history_table.php` - Track approval decisions
+
+### Changed
+- `HttpClientInterface` extended with async methods (`postAsync`, `multipartAsync`)
+- `ProviderInterface` extended with async methods (`generateTextAsync`, `chatAsync`)
+- `AbstractProvider` includes default async implementations
+
+### Examples Added
+- `async-promise-example.php` - Demonstrates async/promise usage
+- `batch-processing-example.php` - Shows batch processing capabilities
+- `content-moderation-example.php` - Content moderation examples
+- `agent-basic.php` - Basic agent usage examples
+- `agent-with-tools.php` - Agent with tool/function calling
+- `agent-human-in-loop.php` - Human-in-the-loop agent patterns
+- `workflow-basic.php` - Basic workflow examples
+- `workflow-advanced.php` - Advanced workflow patterns
+- `workflow-human-in-loop.php` - Human-in-the-loop workflow patterns
 
 ---
 
 ## Version History
 
+- **1.1.0** (2025-12-02) - Agents, Workflows, Async/Promise support, Batch Processing, Content Moderation
 - **1.0.1** (2025-12-01) - Documentation improvements, bug fixes, and code quality enhancements
 - **1.0.0** (2025-12-01) - Initial production-ready release
 

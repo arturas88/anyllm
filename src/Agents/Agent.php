@@ -19,6 +19,12 @@ final class Agent
     /** @var array<Tool> */
     private array $tools = [];
     private int $maxIterations = 10;
+    /** @var callable|null */
+    private $beforeToolExecutionCallback = null;
+    /** @var callable|null */
+    private $afterToolExecutionCallback = null;
+    /** @var callable|null */
+    private $beforeFinalResponseCallback = null;
 
     public function __construct(
         private readonly ProviderInterface $provider,
@@ -45,6 +51,48 @@ final class Agent
     {
         $clone = clone $this;
         $clone->maxIterations = $max;
+        return $clone;
+    }
+
+    /**
+     * Set a callback that will be called before tool execution.
+     * The callback receives: string $toolName, array $arguments
+     * Return true to proceed, false to skip, or throw an exception to abort.
+     *
+     * @param callable(string, array): bool $callback
+     */
+    public function withBeforeToolExecution(callable $callback): self
+    {
+        $clone = clone $this;
+        $clone->beforeToolExecutionCallback = $callback;
+        return $clone;
+    }
+
+    /**
+     * Set a callback that will be called after tool execution.
+     * The callback receives: ToolExecution $execution
+     * Can modify the result or throw an exception to retry.
+     *
+     * @param callable(ToolExecution): mixed|null $callback
+     */
+    public function withAfterToolExecution(callable $callback): self
+    {
+        $clone = clone $this;
+        $clone->afterToolExecutionCallback = $callback;
+        return $clone;
+    }
+
+    /**
+     * Set a callback that will be called before returning the final response.
+     * The callback receives: string $content, array $messages, array $toolExecutions
+     * Return a modified content string, or null to use original.
+     *
+     * @param callable(string, array<Message>, array<ToolExecution>): string|null $callback
+     */
+    public function withBeforeFinalResponse(callable $callback): self
+    {
+        $clone = clone $this;
+        $clone->beforeFinalResponseCallback = $callback;
         return $clone;
     }
 
@@ -87,8 +135,22 @@ final class Agent
 
             if (! $response->hasToolCalls()) {
                 // No more tool calls, we're done
+                $finalContent = $response->content;
+
+                // Human in the loop: allow review/modification before final response
+                if ($this->beforeFinalResponseCallback !== null) {
+                    $modifiedContent = ($this->beforeFinalResponseCallback)(
+                        $finalContent,
+                        $messages,
+                        $toolExecutions
+                    );
+                    if ($modifiedContent !== null) {
+                        $finalContent = $modifiedContent;
+                    }
+                }
+
                 return new AgentResult(
-                    content: $response->content,
+                    content: $finalContent,
                     messages: $messages,
                     toolExecutions: $toolExecutions,
                     iterations: $iterations + 1,
@@ -104,19 +166,47 @@ final class Agent
                     throw new \RuntimeException("Unknown tool: {$toolCall->name}");
                 }
 
+                // Human in the loop: request approval before tool execution
+                if ($this->beforeToolExecutionCallback !== null) {
+                    $shouldProceed = ($this->beforeToolExecutionCallback)($toolCall->name, $toolCall->arguments);
+                    if ($shouldProceed === false) {
+                        // Skip this tool execution
+                        $messages[] = new ToolMessage(
+                            content: json_encode(['skipped' => true, 'reason' => 'Human approval denied']),
+                            toolCallId: $toolCall->id,
+                        );
+                        continue;
+                    }
+                }
+
                 $startTime = microtime(true);
                 $result = $tool->execute($toolCall->arguments);
                 $duration = microtime(true) - $startTime;
 
-                $toolExecutions[] = new ToolExecution(
+                $toolExecution = new ToolExecution(
                     name: $toolCall->name,
                     arguments: $toolCall->arguments,
                     result: $result,
                     duration: $duration,
                 );
 
+                // Human in the loop: allow review/modification after tool execution
+                if ($this->afterToolExecutionCallback !== null) {
+                    $modifiedResult = ($this->afterToolExecutionCallback)($toolExecution);
+                    if ($modifiedResult !== null) {
+                        $toolExecution = new ToolExecution(
+                            name: $toolExecution->name,
+                            arguments: $toolExecution->arguments,
+                            result: $modifiedResult,
+                            duration: $toolExecution->duration,
+                        );
+                    }
+                }
+
+                $toolExecutions[] = $toolExecution;
+
                 $messages[] = new ToolMessage(
-                    content: is_string($result) ? $result : json_encode($result),
+                    content: is_string($toolExecution->result) ? $toolExecution->result : json_encode($toolExecution->result),
                     toolCallId: $toolCall->id,
                 );
             }

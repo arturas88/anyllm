@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace AnyLLM\Providers\OpenAI;
 
 use AnyLLM\Contracts\AudioInterface;
+use AnyLLM\Contracts\ContentModerationInterface;
 use AnyLLM\Contracts\EmbeddingInterface;
 use AnyLLM\Contracts\ImageGenerationInterface;
 use AnyLLM\Messages\Message;
+use AnyLLM\Moderation\ModerationResponse;
 use AnyLLM\Providers\AbstractProvider;
 use AnyLLM\Responses\AudioResponse;
 use AnyLLM\Responses\ChatResponse;
@@ -19,11 +21,13 @@ use AnyLLM\Responses\TextResponse;
 use AnyLLM\Responses\TranscriptionResponse;
 use AnyLLM\StructuredOutput\Schema;
 use AnyLLM\Tools\Tool;
+use GuzzleHttp\Promise\PromiseInterface;
 
 final class OpenAIProvider extends AbstractProvider implements
     ImageGenerationInterface,
     AudioInterface,
-    EmbeddingInterface
+    EmbeddingInterface,
+    ContentModerationInterface
 {
     protected const CAPABILITIES = [
         'chat',
@@ -36,6 +40,7 @@ final class OpenAIProvider extends AbstractProvider implements
         'stt',
         'embeddings',
         'vision',
+        'moderation',
     ];
 
     public function name(): string
@@ -134,6 +139,32 @@ final class OpenAIProvider extends AbstractProvider implements
         ]);
 
         return ChatResponse::fromArray($response);
+    }
+
+    public function chatAsync(
+        string $model,
+        array $messages,
+        ?float $temperature = null,
+        ?int $maxTokens = null,
+        ?array $tools = null,
+        ?string $toolChoice = null,
+        array $options = [],
+    ): PromiseInterface {
+        $mappedRequest = $this->mapRequest('chat.create', [
+            'model' => $model,
+            'messages' => $this->formatMessages($messages),
+            'temperature' => $temperature,
+            'max_tokens' => $maxTokens,
+            'tools' => $tools ? $this->formatTools($tools) : null,
+            'tool_choice' => $toolChoice,
+            ...$options,
+        ]);
+
+        return $this->http->postAsync('/chat/completions', $mappedRequest)
+            ->then(function (array $response) {
+                $mappedResponse = $this->mapResponse('chat.create', $response);
+                return ChatResponse::fromArray($mappedResponse);
+            });
     }
 
     public function streamChat(
@@ -373,6 +404,7 @@ final class OpenAIProvider extends AbstractProvider implements
     {
         return match ($method) {
             'chat.create' => $this->mapChatResponse($response),
+            'moderation.create' => $response, // Moderation response is already in correct format
             default => $response,
         };
     }
@@ -446,5 +478,52 @@ final class OpenAIProvider extends AbstractProvider implements
     public function similarity(array $embedding1, array $embedding2): float
     {
         return \AnyLLM\Support\VectorMath::cosineSimilarity($embedding1, $embedding2);
+    }
+
+    public function moderate(string|array $input, ?string $model = null): ModerationResponse|array
+    {
+        $inputs = is_array($input) ? $input : [$input];
+        $model = $model ?? 'omni-moderation-latest';
+
+        $response = $this->request('moderation.create', '/moderations', [
+            'input' => $inputs,
+            'model' => $model,
+        ]);
+
+        if (is_array($input)) {
+            // Multiple inputs - return array of responses
+            return array_map(
+                fn($result) => ModerationResponse::fromArray($result),
+                $response['results'] ?? []
+            );
+        }
+
+        // Single input - return single response
+        return ModerationResponse::fromArray($response);
+    }
+
+    public function moderateAsync(string|array $input, ?string $model = null): PromiseInterface
+    {
+        $inputs = is_array($input) ? $input : [$input];
+        $model = $model ?? 'omni-moderation-latest';
+
+        $mappedRequest = $this->mapRequest('moderation.create', [
+            'input' => $inputs,
+            'model' => $model,
+        ]);
+
+        return $this->http->postAsync('/moderations', $mappedRequest)
+            ->then(function (array $response) use ($input) {
+                if (is_array($input)) {
+                    // Multiple inputs - return array of responses
+                    return array_map(
+                        fn($result) => ModerationResponse::fromArray($result),
+                        $response['results'] ?? []
+                    );
+                }
+
+                // Single input - return single response
+                return ModerationResponse::fromArray($response);
+            });
     }
 }

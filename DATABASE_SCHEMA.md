@@ -39,6 +39,10 @@ AnyLLM supports multiple database drivers:
 | `llm_api_key` | API key management | Thousands |
 | `llm_api_key_rotation` | Key rotation history | Thousands |
 | `llm_api_key_usage` | Daily key usage summary | Millions |
+| `llm_agent_execution` | Agent execution tracking & state | Millions |
+| `llm_workflow_execution` | Workflow execution tracking & state | Millions |
+| `llm_approval_request` | Pending approval requests | Hundreds of thousands (active) |
+| `llm_approval_history` | Approval decision audit trail | Tens of millions |
 
 ---
 
@@ -516,6 +520,290 @@ CREATE TABLE llm_api_key_usage (
 
 ---
 
+### 9. **llm_agent_execution** - Agent Execution Tracking
+
+Tracks agent executions with state management and Human In The Loop support.
+
+```sql
+CREATE TABLE llm_agent_execution (
+    -- Primary key
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    uuid VARCHAR(36) UNIQUE NOT NULL,
+    
+    -- Multi-tenancy
+    organization_id VARCHAR(255) NULL,
+    team_id VARCHAR(255) NULL,
+    user_id VARCHAR(255) NULL,
+    
+    -- Environment
+    environment VARCHAR(20) DEFAULT 'production',
+    
+    -- Agent info
+    agent_type VARCHAR(50) DEFAULT 'agent',
+    model VARCHAR(255) NOT NULL,
+    provider VARCHAR(50) NOT NULL,
+    system_prompt TEXT NULL,
+    input TEXT NULL,
+    
+    -- Execution state
+    status VARCHAR(20) DEFAULT 'running', -- running, paused, completed, failed, cancelled
+    current_iteration INT DEFAULT 0,
+    max_iterations INT DEFAULT 10,
+    
+    -- Results
+    final_content TEXT NULL,
+    messages JSON NULL,
+    tool_executions JSON NULL,
+    context JSON NULL,
+    
+    -- Usage tracking
+    total_tokens INT DEFAULT 0,
+    prompt_tokens INT DEFAULT 0,
+    completion_tokens INT DEFAULT 0,
+    cost DECIMAL(10,6) NULL,
+    
+    -- Pending approvals (Human In The Loop)
+    has_pending_approval BOOLEAN DEFAULT FALSE,
+    pending_approval_type VARCHAR(50) NULL, -- tool_execution, final_response
+    pending_approval_data JSON NULL,
+    
+    -- Linkage
+    conversation_id VARCHAR(255) NULL,
+    parent_execution_id VARCHAR(255) NULL,
+    
+    -- Timestamps
+    started_at TIMESTAMP NULL,
+    paused_at TIMESTAMP NULL,
+    resumed_at TIMESTAMP NULL,
+    completed_at TIMESTAMP NULL,
+    failed_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    -- Indexes
+    INDEX idx_uuid (uuid),
+    INDEX idx_status_approval (status, has_pending_approval),
+    INDEX idx_user_status_created (user_id, status, created_at),
+    INDEX idx_org_status_created (organization_id, status, created_at),
+    INDEX idx_agent_type_status (agent_type, status)
+);
+```
+
+**Key Features:**
+- ✅ Execution state tracking (running, paused, completed)
+- ✅ Human In The Loop support (pending approvals)
+- ✅ Full message and tool execution history
+- ✅ Usage and cost tracking per execution
+- ✅ Pause/resume capability
+
+---
+
+### 10. **llm_workflow_execution** - Workflow Execution Tracking
+
+Tracks workflow executions with step-level state management and approvals.
+
+```sql
+CREATE TABLE llm_workflow_execution (
+    -- Primary key
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    uuid VARCHAR(36) UNIQUE NOT NULL,
+    
+    -- Multi-tenancy
+    organization_id VARCHAR(255) NULL,
+    team_id VARCHAR(255) NULL,
+    user_id VARCHAR(255) NULL,
+    
+    -- Environment
+    environment VARCHAR(20) DEFAULT 'production',
+    
+    -- Workflow info
+    workflow_name VARCHAR(255) NULL,
+    default_model VARCHAR(255) NOT NULL,
+    provider VARCHAR(50) NOT NULL,
+    steps_config JSON NULL,
+    input_variables JSON NULL,
+    
+    -- Execution state
+    status VARCHAR(20) DEFAULT 'running', -- running, paused, completed, failed, cancelled
+    current_step VARCHAR(255) NULL,
+    completed_steps INT DEFAULT 0,
+    total_steps INT DEFAULT 0,
+    
+    -- Results
+    step_results JSON NULL,
+    context_variables JSON NULL,
+    final_output TEXT NULL,
+    
+    -- Usage tracking
+    total_tokens INT DEFAULT 0,
+    cost DECIMAL(10,6) NULL,
+    
+    -- Pending approvals (Human In The Loop)
+    has_pending_approval BOOLEAN DEFAULT FALSE,
+    pending_step_name VARCHAR(255) NULL,
+    pending_approval_data JSON NULL,
+    
+    -- Linkage
+    conversation_id VARCHAR(255) NULL,
+    parent_execution_id VARCHAR(255) NULL,
+    
+    -- Timestamps
+    started_at TIMESTAMP NULL,
+    paused_at TIMESTAMP NULL,
+    resumed_at TIMESTAMP NULL,
+    completed_at TIMESTAMP NULL,
+    failed_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    -- Indexes
+    INDEX idx_uuid (uuid),
+    INDEX idx_status_approval (status, has_pending_approval),
+    INDEX idx_user_status_created (user_id, status, created_at),
+    INDEX idx_org_status_created (organization_id, status, created_at),
+    INDEX idx_current_step_status (current_step, status)
+);
+```
+
+**Key Features:**
+- ✅ Step-by-step execution tracking
+- ✅ Human In The Loop at step level
+- ✅ Workflow context variable management
+- ✅ Step result storage
+- ✅ Pause/resume capability
+
+---
+
+### 11. **llm_approval_request** - Approval Request Management
+
+Manages pending approval requests for Human In The Loop operations.
+
+```sql
+CREATE TABLE llm_approval_request (
+    -- Primary key
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    uuid VARCHAR(36) UNIQUE NOT NULL,
+    
+    -- Multi-tenancy
+    organization_id VARCHAR(255) NULL,
+    team_id VARCHAR(255) NULL,
+    user_id VARCHAR(255) NULL,
+    requested_by VARCHAR(255) NULL,
+    
+    -- Environment
+    environment VARCHAR(20) DEFAULT 'production',
+    
+    -- Execution linkage
+    execution_type VARCHAR(20) NOT NULL, -- agent, workflow
+    execution_id VARCHAR(255) NOT NULL,
+    execution_uuid VARCHAR(36) NULL,
+    
+    -- Approval details
+    approval_type VARCHAR(50) NOT NULL, -- tool_execution, step_execution, final_response, step_result
+    approval_key VARCHAR(255) NULL, -- tool_name, step_name, etc.
+    description TEXT NULL,
+    request_data JSON NULL,
+    context JSON NULL,
+    
+    -- Approval state
+    status VARCHAR(20) DEFAULT 'pending', -- pending, approved, rejected, expired, cancelled
+    decision_reason TEXT NULL,
+    decision_metadata JSON NULL,
+    
+    -- Approver info
+    approved_by VARCHAR(255) NULL,
+    approved_at TIMESTAMP NULL,
+    rejected_by VARCHAR(255) NULL,
+    rejected_at TIMESTAMP NULL,
+    
+    -- Timeouts
+    timeout_minutes INT NULL,
+    expires_at TIMESTAMP NULL,
+    
+    -- Priority
+    priority INT DEFAULT 50,
+    
+    -- Notification tracking
+    notification_sent BOOLEAN DEFAULT FALSE,
+    notification_sent_at TIMESTAMP NULL,
+    notification_channels JSON NULL,
+    
+    -- Timestamps
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    -- Indexes
+    INDEX idx_uuid (uuid),
+    INDEX idx_execution (execution_type, execution_id, status),
+    INDEX idx_status_expires (status, expires_at),
+    INDEX idx_user_status_created (user_id, status, created_at),
+    INDEX idx_org_status_created (organization_id, status, created_at),
+    INDEX idx_approval_type_status (approval_type, status)
+);
+```
+
+**Key Features:**
+- ✅ Approval request lifecycle management
+- ✅ Timeout and expiration handling
+- ✅ Notification tracking
+- ✅ Priority-based ordering
+- ✅ Full audit trail
+
+---
+
+### 12. **llm_approval_history** - Approval Decision Audit Trail
+
+Complete audit trail of all approval decisions.
+
+```sql
+CREATE TABLE llm_approval_history (
+    -- Primary key
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    
+    -- Linkage
+    approval_request_id VARCHAR(36) NULL,
+    execution_type VARCHAR(20) NOT NULL,
+    execution_id VARCHAR(255) NOT NULL,
+    
+    -- Multi-tenancy
+    organization_id VARCHAR(255) NULL,
+    team_id VARCHAR(255) NULL,
+    user_id VARCHAR(255) NULL,
+    
+    -- Approval details
+    approval_type VARCHAR(50) NOT NULL,
+    approval_key VARCHAR(255) NULL,
+    action VARCHAR(20) NOT NULL, -- approved, rejected, modified, auto_approved, auto_rejected
+    
+    -- Decision data
+    original_data TEXT NULL,
+    modified_data TEXT NULL,
+    decision_reason TEXT NULL,
+    metadata JSON NULL,
+    
+    -- Actor info
+    acted_by VARCHAR(255) NULL,
+    acted_by_type VARCHAR(20) NULL, -- user, system, auto
+    
+    -- Timestamp
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Indexes
+    INDEX idx_execution_created (execution_type, execution_id, created_at),
+    INDEX idx_approval_type_action (approval_type, action, created_at),
+    INDEX idx_user_created (user_id, created_at),
+    INDEX idx_org_created (organization_id, created_at)
+);
+```
+
+**Key Features:**
+- ✅ Complete audit trail
+- ✅ Tracks modifications to approved data
+- ✅ Actor identification (user/system/auto)
+- ✅ Compliance and security auditing
+
+---
+
 ## 🚀 Performance Optimization
 
 ### Index Strategy
@@ -563,6 +851,34 @@ LIMIT 1;
 -- Uses: idx_queue_status_available
 ```
 
+**Human In The Loop Queries:**
+```sql
+-- Find pending approvals for a user
+SELECT * FROM llm_approval_request 
+WHERE user_id = ? AND status = 'pending' 
+  AND (expires_at IS NULL OR expires_at > NOW())
+ORDER BY priority DESC, created_at ASC;
+-- Uses: idx_user_status_created
+
+-- Find executions waiting for approval
+SELECT * FROM llm_agent_execution 
+WHERE has_pending_approval = TRUE 
+  AND status = 'paused'
+ORDER BY created_at ASC;
+-- Uses: idx_status_approval
+
+-- Get approval history for an execution
+SELECT * FROM llm_approval_history 
+WHERE execution_type = ? AND execution_id = ?
+ORDER BY created_at DESC;
+-- Uses: idx_execution_created
+
+-- Find workflow executions at a specific step
+SELECT * FROM llm_workflow_execution 
+WHERE current_step = ? AND status = 'running';
+-- Uses: idx_current_step_status
+```
+
 ---
 
 ## 🔒 Security Features
@@ -607,6 +923,10 @@ Run migrations in this order:
 3. `create_llm_usage_table.php`
 4. `create_llm_task_table.php`
 5. `create_llm_api_key_table.php`
+6. `create_llm_agent_executions_table.php` (Human In The Loop)
+7. `create_llm_workflow_executions_table.php` (Human In The Loop)
+8. `create_llm_approval_requests_table.php` (Human In The Loop)
+9. `create_llm_approval_history_table.php` (Human In The Loop)
 
 ### SQLite Notes
 
@@ -631,8 +951,12 @@ Assuming 1M users, 100K organizations:
 | llm_log | 50M | 2KB | 100GB | 3TB |
 | llm_usage | 50M | 200B | 10GB | 300GB |
 | llm_task | 1M | 1KB | 1GB | 30GB |
+| llm_agent_execution | 500K | 2KB | 1GB | 30GB |
+| llm_workflow_execution | 500K | 2KB | 1GB | 30GB |
+| llm_approval_request | 100K | 1KB | 100MB | 3GB |
+| llm_approval_history | 1M | 500B | 500MB | 15GB |
 
-**Total: ~120GB/day, ~3.6TB/month**
+**Total: ~125GB/day, ~3.75TB/month**
 
 ---
 
@@ -649,6 +973,6 @@ Assuming 1M users, 100K organizations:
 
 ---
 
-**Schema Version:** 1.0.0 (Production Hardened)
+**Schema Version:** 1.1.0 (Production Hardened + Human In The Loop)
 **Last Updated:** 2025-12-01
 

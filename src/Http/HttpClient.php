@@ -9,19 +9,31 @@ use AnyLLM\Exceptions\AuthenticationException;
 use AnyLLM\Exceptions\InvalidRequestException;
 use AnyLLM\Exceptions\ProviderException;
 use AnyLLM\Exceptions\RateLimitException;
+use GuzzleHttp\Promise\PromiseInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 
 final class HttpClient implements HttpClientInterface
 {
+    private ?\GuzzleHttp\Client $guzzleClient = null;
+
     public function __construct(
         private readonly ?ClientInterface $client = null,
         private readonly string $baseUri = '',
         private readonly array $headers = [],
         private readonly ?RequestFactoryInterface $requestFactory = null,
         private readonly ?StreamFactoryInterface $streamFactory = null,
-    ) {}
+    ) {
+        // Initialize Guzzle client for async operations if available
+        if (class_exists(\GuzzleHttp\Client::class)) {
+            $this->guzzleClient = new \GuzzleHttp\Client([
+                'timeout' => 60,
+                'http_errors' => false,
+                'headers' => array_merge($this->headers, ['Content-Type' => 'application/json']),
+            ]);
+        }
+    }
 
     public function post(string $endpoint, array $data, bool $raw = false): array
     {
@@ -125,6 +137,91 @@ final class HttpClient implements HttpClientInterface
     private function buildUrl(string $endpoint): string
     {
         return rtrim($this->baseUri, '/') . '/' . ltrim($endpoint, '/');
+    }
+
+    public function postAsync(string $endpoint, array $data, bool $raw = false): PromiseInterface
+    {
+        if ($this->guzzleClient === null) {
+            throw new \RuntimeException('Async operations require Guzzle HTTP client. Install guzzlehttp/guzzle.');
+        }
+
+        // Build full URL like sync method
+        $url = $this->buildUrl($endpoint);
+
+        return $this->guzzleClient->postAsync($url, [
+            'json' => $data,
+        ])->then(function ($response) use ($raw) {
+            $statusCode = $response->getStatusCode();
+
+            if ($statusCode >= 400) {
+                $body = (string) $response->getBody();
+                $error = json_decode($body, true);
+                $message = $error['error']['message'] ?? $error['message'] ?? 'Unknown error';
+
+                $exception = match (true) {
+                    $statusCode === 401 => new AuthenticationException($message),
+                    $statusCode === 429 => new RateLimitException($message),
+                    $statusCode >= 400 && $statusCode < 500 => new InvalidRequestException($message, $statusCode),
+                    default => new ProviderException($message, $statusCode),
+                };
+
+                throw $exception;
+            }
+
+            if ($raw) {
+                return ['data' => (string) $response->getBody()];
+            }
+
+            return json_decode((string) $response->getBody(), true) ?? [];
+        });
+    }
+
+    public function multipartAsync(string $endpoint, array $data): PromiseInterface
+    {
+        if ($this->guzzleClient === null) {
+            throw new \RuntimeException('Async operations require Guzzle HTTP client. Install guzzlehttp/guzzle.');
+        }
+
+        // Build full URL like sync method
+        $url = $this->buildUrl($endpoint);
+
+        return $this->guzzleClient->postAsync($url, [
+            'multipart' => $this->formatMultipartData($data),
+        ])->then(function ($response) {
+            $statusCode = $response->getStatusCode();
+
+            if ($statusCode >= 400) {
+                $body = (string) $response->getBody();
+                $error = json_decode($body, true);
+                $message = $error['error']['message'] ?? $error['message'] ?? 'Unknown error';
+
+                $exception = match (true) {
+                    $statusCode === 401 => new AuthenticationException($message),
+                    $statusCode === 429 => new RateLimitException($message),
+                    $statusCode >= 400 && $statusCode < 500 => new InvalidRequestException($message, $statusCode),
+                    default => new ProviderException($message, $statusCode),
+                };
+
+                throw $exception;
+            }
+
+            return json_decode((string) $response->getBody(), true) ?? [];
+        });
+    }
+
+    private function formatMultipartData(array $data): array
+    {
+        $multipart = [];
+        foreach ($data as $key => $value) {
+            if ($value === null) {
+                continue;
+            }
+            $multipart[] = [
+                'name' => $key,
+                'contents' => is_string($value) ? $value : json_encode($value),
+            ];
+        }
+        return $multipart;
     }
 
     private function handleError(int $statusCode, string $body): void

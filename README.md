@@ -28,6 +28,8 @@ A comprehensive, battle-tested PHP 8.2+ library providing a unified interface fo
 - **Streaming Support** - Real-time response streaming with pause/resume/cancel
 - **Structured Output** - Type-safe JSON with automatic hydration
 - **Tool/Function Calling** - Let LLMs use your PHP functions
+- **Agents** - Autonomous multi-iteration problem solving with tool integration
+- **Workflows** - Multi-step orchestration with variable interpolation and human-in-the-loop
 - **Embeddings & RAG** - Semantic search and retrieval-augmented generation
 - **Multi-Modal** - Text, images, files, audio (provider-dependent)
 
@@ -197,6 +199,153 @@ $weatherTool = Tool::fromCallable(
 $response = $llm->chat('gpt-4o', [
     new UserMessage('What\'s the weather in Paris?')
 ], tools: [$weatherTool]);
+```
+
+### 6. Agents & Workflows
+
+#### Agents - Autonomous Problem Solving
+
+```php
+use AnyLLM\Agents\Agent;
+use AnyLLM\Tools\Tool;
+
+// Create an agent with a system prompt
+$agent = Agent::create(
+    provider: $llm,
+    model: 'gpt-4o-mini',
+    systemPrompt: 'You are a helpful assistant that solves problems step by step.',
+);
+
+// Simple agent execution
+$result = $agent->run('What are the main benefits of using PHP?');
+echo $result->content;
+echo "Iterations: {$result->iterations}";
+
+// Agent with tools
+$calculator = Tool::fromCallable(
+    name: 'calculator',
+    description: 'Perform calculations',
+    callable: function(string $expression): array {
+        // Safe evaluation logic
+        return ['result' => eval("return {$expression};")];
+    }
+);
+
+$agentWithTools = Agent::create($llm, 'gpt-4o-mini')
+    ->withTools($calculator)
+    ->withMaxIterations(10);
+
+$result = $agentWithTools->run('Calculate 25 * 4 + 100');
+echo $result->content;
+foreach ($result->toolExecutions as $execution) {
+    echo "Tool: {$execution->name}, Result: " . json_encode($execution->result);
+}
+```
+
+#### Human-in-the-Loop Agents
+
+```php
+// Request approval before tool execution
+$agent = Agent::create($llm, 'gpt-4o-mini')
+    ->withTools($databaseTool)
+    ->withBeforeToolExecution(function(string $toolName, array $arguments): bool {
+        // Request human approval
+        echo "Tool {$toolName} will be called with: " . json_encode($arguments);
+        return true; // or false to skip
+    })
+    ->withAfterToolExecution(function(ToolExecution $execution): mixed {
+        // Review/modify tool result
+        return $execution->result; // or modified result
+    })
+    ->withBeforeFinalResponse(function(string $content, array $messages, array $toolExecutions): ?string {
+        // Review/modify final response
+        return $content; // or modified content
+    });
+```
+
+#### Workflows - Multi-Step Orchestration
+
+```php
+use AnyLLM\Agents\Workflow\Workflow;
+use AnyLLM\StructuredOutput\Schema;
+use AnyLLM\StructuredOutput\Attributes\{Description, ArrayOf};
+
+// Simple workflow with variable interpolation
+$workflow = Workflow::create(
+    provider: $llm,
+    defaultModel: 'gpt-4o-mini',
+)
+    ->addStep(
+        name: 'analyze',
+        prompt: 'Analyze this text: {{input}}',
+    )
+    ->addStep(
+        name: 'summarize',
+        prompt: 'Summarize the analysis: {{analyze}}',
+    )
+    ->addStep(
+        name: 'recommend',
+        prompt: 'Provide recommendations based on: {{summarize}}',
+    );
+
+$result = $workflow->run(['input' => 'Your text here']);
+echo $result->finalOutput;
+foreach ($result->stepResults as $stepName => $stepResult) {
+    echo "{$stepName}: {$stepResult->output}\n";
+}
+```
+
+#### Workflows with Structured Output
+
+```php
+class ProductAnalysis
+{
+    #[Description('Product name')]
+    public string $productName;
+    
+    #[Description('Key features')]
+    #[ArrayOf('string')]
+    public array $features;
+}
+
+$workflow = Workflow::create($llm, 'gpt-4o-mini')
+    ->addStep(
+        name: 'analyze_product',
+        prompt: 'Analyze: {{product_description}}',
+        outputSchema: Schema::fromClass(ProductAnalysis::class),
+    )
+    ->addStep(
+        name: 'create_marketing_plan',
+        prompt: 'Create marketing plan for: {{analyze_product.productName}}',
+    );
+
+$result = $workflow->run(['product_description' => 'A mobile app...']);
+$analysis = $result->stepResults['analyze_product']->output;
+echo $analysis->productName;
+```
+
+#### Human-in-the-Loop Workflows
+
+```php
+$workflow = Workflow::create($llm, 'gpt-4o-mini')
+    ->addStep(name: 'draft', prompt: 'Create draft: {{topic}}')
+    ->addStep(name: 'review', prompt: 'Review: {{draft}}')
+    ->withBeforeStep(function(string $stepName, string $prompt, WorkflowContext $context): bool {
+        // Request approval before executing step
+        if ($stepName === 'review') {
+            echo "Approve review step? (yes/no): ";
+            return true; // or false to skip
+        }
+        return true;
+    })
+    ->withAfterStep(function(string $stepName, StepResult $result, WorkflowContext $context): ?StepResult {
+        // Review/modify step result
+        if ($stepName === 'draft') {
+            // Allow modifications
+            return $result; // or modified StepResult
+        }
+        return null; // Use original
+    });
 ```
 
 ### 7. Production Features
@@ -380,6 +529,15 @@ php examples/logging-example.php          # Logging & analytics
 php examples/rate-limiting-example.php    # Rate limiting
 php examples/cache-drivers-example.php    # Caching strategies
 php examples/quick-wins-demo.php          # All quick wins
+php examples/agent-basic.php              # Basic agent usage
+php examples/agent-with-tools.php         # Agents with tool calling
+php examples/agent-human-in-loop.php     # Human-in-the-loop agents
+php examples/workflow-basic.php           # Basic workflows
+php examples/workflow-advanced.php        # Advanced workflow patterns
+php examples/workflow-human-in-loop.php   # Human-in-the-loop workflows
+php examples/async-promise-example.php    # Async/promise support
+php examples/batch-processing-example.php # Batch processing
+php examples/content-moderation-example.php # Content moderation
 ```
 
 ## 🛠️ Quick Commands
