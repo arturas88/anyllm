@@ -138,4 +138,3 @@ echo "Proposal:\n{$result3->stepResults['generate_proposal']->output}\n\n";
 echo "Timeline:\n{$result3->stepResults['create_timeline']->output}\n\n";
 
 echo "All examples completed!\n";
-

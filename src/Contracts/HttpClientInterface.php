@@ -14,14 +14,14 @@ interface HttpClientInterface
 
     /**
      * Post request asynchronously (returns a Promise).
-     * 
+     *
      * @return \GuzzleHttp\Promise\PromiseInterface
      */
     public function postAsync(string $endpoint, array $data, bool $raw = false);
 
     /**
      * Multipart request asynchronously (returns a Promise).
-     * 
+     *
      * @return \GuzzleHttp\Promise\PromiseInterface
      */
     public function multipartAsync(string $endpoint, array $data);

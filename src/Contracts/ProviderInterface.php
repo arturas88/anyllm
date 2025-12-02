@@ -84,7 +84,7 @@ interface ProviderInterface
 
     /**
      * Generate text asynchronously (returns a Promise).
-     * 
+     *
      * @return \GuzzleHttp\Promise\PromiseInterface<TextResponse>
      */
     public function generateTextAsync(
@@ -98,7 +98,7 @@ interface ProviderInterface
 
     /**
      * Chat asynchronously (returns a Promise).
-     * 
+     *
      * @param array<Message> $messages
      * @param array<Tool>|null $tools
      * @return \GuzzleHttp\Promise\PromiseInterface<ChatResponse>

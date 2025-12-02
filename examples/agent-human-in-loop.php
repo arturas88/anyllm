@@ -87,21 +87,21 @@ $agent = Agent::create(
   ->withBeforeToolExecution(function (string $toolName, array $arguments): bool {
       // Human approval required for sensitive operations
       $sensitiveTools = ['send_email', 'delete_file', 'make_api_call'];
-      
+
       if (in_array($toolName, $sensitiveTools)) {
           echo "\n⚠️  HUMAN APPROVAL REQUIRED\n";
           echo "Tool: {$toolName}\n";
           echo "Arguments: " . json_encode($arguments, JSON_PRETTY_PRINT) . "\n";
           echo "\nDo you want to proceed? (yes/no): ";
-          
+
           // In a real application, this would be a proper user input mechanism
           // For demo purposes, we'll simulate approval based on the operation
           $handle = fopen('php://stdin', 'r');
           $line = trim(fgets($handle));
           fclose($handle);
-          
+
           $approved = strtolower($line) === 'yes' || strtolower($line) === 'y';
-          
+
           if ($approved) {
               echo "✅ Approved. Proceeding...\n\n";
               return true;
@@ -110,7 +110,7 @@ $agent = Agent::create(
               return false;
           }
       }
-      
+
       // Auto-approve non-sensitive tools
       return true;
   })
@@ -119,7 +119,7 @@ $agent = Agent::create(
       if ($execution->name === 'send_email') {
           echo "📧 Email sent. Result: " . json_encode($execution->result) . "\n";
       }
-      
+
       // Return null to use original result, or return modified result
       return null;
   })
@@ -127,7 +127,7 @@ $agent = Agent::create(
       // Optionally review/modify the final response before returning
       echo "\n📝 Final response preview:\n";
       echo substr($content, 0, 200) . (strlen($content) > 200 ? '...' : '') . "\n";
-      
+
       // Return null to use original content, or return modified content
       return null;
   });
@@ -174,4 +174,3 @@ echo "- Quality control (reviewing AI-generated content)\n";
 echo "- Compliance requirements (audit trails, approvals)\n";
 
 echo "\nAll examples completed!\n";
-

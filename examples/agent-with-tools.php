@@ -23,12 +23,12 @@ $calculator = Tool::fromCallable(
     ): array {
         // Simple calculator - in production, use a proper math parser
         $expression = str_replace([' ', '×', '÷'], ['', '*', '/'], $expression);
-        
+
         // Security: Only allow safe mathematical expressions
         if (!preg_match('/^[\d\+\-\*\/\(\)\.\s]+$/', $expression)) {
             return ['error' => 'Invalid expression', 'result' => null];
         }
-        
+
         try {
             eval("\$result = {$expression};");
             return ['expression' => $expression, 'result' => $result];
@@ -54,10 +54,10 @@ $weatherTool = Tool::fromCallable(
             'new york' => ['celsius' => 22, 'fahrenheit' => 72],
             'tokyo' => ['celsius' => 25, 'fahrenheit' => 77],
         ];
-        
+
         $cityKey = strtolower($city);
         $temp = $temperatures[$cityKey] ?? ['celsius' => 20, 'fahrenheit' => 68];
-        
+
         return [
             'city' => ucfirst($city),
             'temperature' => $temp[$unit] ?? $temp['celsius'],
@@ -84,7 +84,7 @@ $databaseTool = Tool::fromCallable(
                 ['id' => 3, 'name' => 'Charlie', 'email' => 'charlie@example.com'],
             ],
         ];
-        
+
         return [
             'query' => $query,
             'results' => $results[$query] ?? [],
@@ -138,4 +138,3 @@ if ($result3->usage) {
 }
 
 echo "\nAll examples completed!\n";
-

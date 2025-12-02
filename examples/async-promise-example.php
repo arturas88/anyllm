@@ -2,10 +2,10 @@
 
 /**
  * Async/Promise Support Example
- * 
+ *
  * This example demonstrates how to use async/promise-based methods
  * for non-blocking LLM API calls.
- * 
+ *
  * Requirements:
  * - guzzlehttp/guzzle must be installed
  * - PHP 8.2+
@@ -116,11 +116,10 @@ try {
         model: 'invalid-model',
         prompt: 'This will fail',
     );
-    
+
     $errorPromise->wait();
 } catch (\Exception $e) {
     echo "   Caught error: {$e->getMessage()}\n";
 }
 
 echo "\n=== Example Complete ===\n";
-

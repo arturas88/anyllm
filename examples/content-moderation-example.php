@@ -2,10 +2,10 @@
 
 /**
  * Content Moderation Example
- * 
+ *
  * This example demonstrates how to use content moderation
  * to check if text violates content policies.
- * 
+ *
  * Requirements:
  * - OpenAI API key (content moderation is currently supported by OpenAI)
  * - PHP 8.2+
@@ -137,4 +137,3 @@ foreach ($details['categories'] as $category => $flagged) {
 }
 
 echo "\n=== Example Complete ===\n";
-

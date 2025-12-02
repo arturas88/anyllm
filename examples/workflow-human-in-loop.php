@@ -54,12 +54,12 @@ $approvalWorkflow = Workflow::create(
     ->withBeforeStep(function (string $stepName, string $prompt, WorkflowContext $context): bool {
         // Require approval before executing certain steps
         $stepsRequiringApproval = ['review', 'finalize'];
-        
+
         if (in_array($stepName, $stepsRequiringApproval)) {
             echo "\n⚠️  STEP APPROVAL REQUIRED\n";
             echo "Step: {$stepName}\n";
             echo "Prompt: " . substr($prompt, 0, 200) . "...\n";
-            
+
             // Show context
             if ($stepName === 'review') {
                 $draft = $context->getVariable('draft');
@@ -71,15 +71,15 @@ $approvalWorkflow = Workflow::create(
                     }
                 }
             }
-            
+
             echo "\nDo you want to proceed with this step? (yes/no): ";
-            
+
             // In a real application, this would be proper user input
             // For demo, we'll auto-approve
             echo "yes (auto-approved for demo)\n";
             return true;
         }
-        
+
         return true; // Auto-approve other steps
     })
     ->withAfterStep(function (string $stepName, StepResult $result, WorkflowContext $context): ?StepResult {
@@ -91,12 +91,12 @@ $approvalWorkflow = Workflow::create(
                 echo "Title: {$draft->title}\n";
                 echo "Content Preview: " . substr($draft->content, 0, 300) . "...\n";
                 echo "\nWould you like to modify the draft? (yes/no): ";
-                
+
                 // In a real application, user could provide modifications
                 echo "no (using original for demo)\n";
             }
         }
-        
+
         // Return null to use original result, or return modified StepResult
         return null;
     });
@@ -155,13 +155,13 @@ $qualityWorkflow = Workflow::create(
             $review = $result->output;
             if (is_object($review) && isset($review->qualityScore)) {
                 echo "\n📊 Quality Score: {$review->qualityScore}/10\n";
-                
+
                 $threshold = 7;
                 if ($review->qualityScore < $threshold) {
                     echo "⚠️  Quality score below threshold ({$threshold})\n";
                     echo "Issues found: " . count($review->issues) . "\n";
                     echo "\nDo you want to continue despite low quality score? (yes/no): ";
-                    
+
                     // In a real application, this would wait for user input
                     echo "yes (continuing for demo)\n";
                 } else {
@@ -169,19 +169,19 @@ $qualityWorkflow = Workflow::create(
                 }
             }
         }
-        
+
         return null;
     });
 
 $code = <<<'PHP'
-function calculateTotal($items) {
-    $total = 0;
-    foreach ($items as $item) {
-        $total += $item['price'];
+    function calculateTotal($items) {
+        $total = 0;
+        foreach ($items as $item) {
+            $total += $item['price'];
+        }
+        return $total;
     }
-    return $total;
-}
-PHP;
+    PHP;
 
 echo "Original Code:\n{$code}\n\n";
 
@@ -217,27 +217,27 @@ $conditionalWorkflow = Workflow::create(
     ->withBeforeStep(function (string $stepName, string $prompt, WorkflowContext $context): bool {
         // Check if this is a sensitive request
         $request = $context->getVariable('request') ?? '';
-        
+
         $sensitiveKeywords = ['delete', 'remove', 'cancel', 'refund', 'modify payment'];
         $requiresApproval = false;
-        
+
         foreach ($sensitiveKeywords as $keyword) {
             if (stripos($request, $keyword) !== false) {
                 $requiresApproval = true;
                 break;
             }
         }
-        
+
         if ($requiresApproval && $stepName !== 'analyze_request') {
             echo "\n⚠️  SENSITIVE OPERATION DETECTED\n";
             echo "Request: {$request}\n";
             echo "This operation requires human approval.\n";
             echo "\nDo you want to proceed? (yes/no): ";
-            
+
             // In a real application, this would wait for approval
             echo "yes (auto-approved for demo)\n";
         }
-        
+
         return true;
     });
 
@@ -262,4 +262,3 @@ echo "- Financial transaction approvals\n";
 echo "- Data processing pipelines with human oversight\n";
 
 echo "\nAll examples completed!\n";
-

@@ -2,10 +2,10 @@
 
 /**
  * Batch Processing Example
- * 
+ *
  * This example demonstrates how to process multiple LLM requests
  * concurrently using the BatchProcessor class.
- * 
+ *
  * Requirements:
  * - guzzlehttp/guzzle must be installed
  * - PHP 8.2+
@@ -105,7 +105,7 @@ try {
     $timeoutPromises = [
         'slow' => $processor->generateText('gpt-4o-mini', 'Write a long story'),
     ];
-    
+
     $timeoutResults = $processor->waitWithTimeout($timeoutPromises, 5.0);
     echo "   Completed within timeout\n";
 } catch (\Exception $e) {
@@ -145,4 +145,3 @@ echo "   Time: " . round($batchTime, 2) . " seconds\n";
 echo "   Speedup: " . round($sequentialTime / $batchTime, 2) . "x faster\n";
 
 echo "\n=== Example Complete ===\n";
-

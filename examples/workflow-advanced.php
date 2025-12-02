@@ -139,18 +139,18 @@ $analysisWorkflow = Workflow::create(
     );
 
 $rawData = <<<'DATA'
-Sales Data:
-- Q1 2024: $100k
-- Q2 2024: $120k
-- Q3 2024: $150k
-- Q4 2024: $180k
+    Sales Data:
+    - Q1 2024: $100k
+    - Q2 2024: $120k
+    - Q3 2024: $150k
+    - Q4 2024: $180k
 
-User Growth:
-- Jan: 1,000 users
-- Feb: 1,200 users
-- Mar: 1,500 users
-- Apr: 1,800 users
-DATA;
+    User Growth:
+    - Jan: 1,000 users
+    - Feb: 1,200 users
+    - Mar: 1,500 users
+    - Apr: 1,800 users
+    DATA;
 
 echo "Raw Data:\n{$rawData}\n\n";
 
@@ -218,4 +218,3 @@ foreach ($docResult->context->getAllVariables() as $key => $value) {
 }
 
 echo "\nAll examples completed!\n";
-

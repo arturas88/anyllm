@@ -112,7 +112,7 @@ final class Schema
         $arrayOfAttr = $property->getAttributes(ArrayOf::class)[0] ?? null;
         if ($arrayOfAttr) {
             $itemClass = $arrayOfAttr->newInstance()->class;
-            
+
             // Handle primitive types (string, int, float, bool)
             $primitiveTypes = ['string', 'int', 'integer', 'float', 'double', 'bool', 'boolean'];
             if (in_array(strtolower($itemClass), $primitiveTypes)) {
@@ -122,14 +122,14 @@ final class Schema
                     'bool', 'boolean' => 'boolean',
                     default => 'string',
                 };
-                
+
                 return [
                     ...($schema['description'] ?? [] ? ['description' => $schema['description']] : []),
                     'type' => 'array',
                     'items' => ['type' => $itemType],
                 ];
             }
-            
+
             // Handle class types
             $itemSchema = self::fromClass($itemClass);
             return [

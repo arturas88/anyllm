@@ -483,7 +483,7 @@ final class OpenAIProvider extends AbstractProvider implements
     public function moderate(string|array $input, ?string $model = null): ModerationResponse|array
     {
         $inputs = is_array($input) ? $input : [$input];
-        $model = $model ?? 'omni-moderation-latest';
+        $model ??= 'omni-moderation-latest';
 
         $response = $this->request('moderation.create', '/moderations', [
             'input' => $inputs,
@@ -505,7 +505,7 @@ final class OpenAIProvider extends AbstractProvider implements
     public function moderateAsync(string|array $input, ?string $model = null): PromiseInterface
     {
         $inputs = is_array($input) ? $input : [$input];
-        $model = $model ?? 'omni-moderation-latest';
+        $model ??= 'omni-moderation-latest';
 
         $mappedRequest = $this->mapRequest('moderation.create', [
             'input' => $inputs,

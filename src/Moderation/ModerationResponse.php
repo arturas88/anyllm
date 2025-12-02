@@ -55,7 +55,7 @@ final class ModerationResponse
 
     /**
      * Get all flagged categories.
-     * 
+     *
      * @return array<string> List of category names that were flagged
      */
     public function getFlaggedCategories(): array
@@ -75,4 +75,3 @@ final class ModerationResponse
         ];
     }
 }
-

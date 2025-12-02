@@ -13,19 +13,19 @@ use GuzzleHttp\Promise\Utils;
 
 /**
  * BatchProcessor handles concurrent batch processing of multiple LLM requests.
- * 
+ *
  * This class allows you to process multiple requests in parallel, significantly
  * improving performance when making multiple API calls.
- * 
+ *
  * @example
  * ```php
  * $processor = new BatchProcessor($provider);
- * 
+ *
  * $promises = [
  *     'prompt1' => $processor->generateText('gpt-4', 'Hello'),
  *     'prompt2' => $processor->generateText('gpt-4', 'World'),
  * ];
- * 
+ *
  * $results = $processor->wait($promises);
  * ```
  */
@@ -37,7 +37,7 @@ final class BatchProcessor
 
     /**
      * Create a batch text generation request.
-     * 
+     *
      * @param string $model The model to use
      * @param string $prompt The prompt text
      * @param float|null $temperature Optional temperature
@@ -66,7 +66,7 @@ final class BatchProcessor
 
     /**
      * Create a batch chat request.
-     * 
+     *
      * @param string $model The model to use
      * @param array<Message> $messages The conversation messages
      * @param float|null $temperature Optional temperature
@@ -98,7 +98,7 @@ final class BatchProcessor
 
     /**
      * Wait for all promises to resolve and return results.
-     * 
+     *
      * @param array<string, PromiseInterface> $promises Associative array of promises
      * @return array<string, mixed> Associative array of results with same keys
      * @throws \Throwable If any promise is rejected
@@ -121,7 +121,7 @@ final class BatchProcessor
 
     /**
      * Wait for all promises to resolve, returning both fulfilled and rejected results.
-     * 
+     *
      * @param array<string, PromiseInterface> $promises Associative array of promises
      * @return array<string, array{state: 'fulfilled'|'rejected', value?: mixed, reason?: \Throwable}> Results with state information
      */
@@ -143,7 +143,7 @@ final class BatchProcessor
 
     /**
      * Wait for all promises with a timeout.
-     * 
+     *
      * @param array<string, PromiseInterface> $promises Associative array of promises
      * @param float $timeout Timeout in seconds
      * @return array<string, mixed> Associative array of results
@@ -153,26 +153,26 @@ final class BatchProcessor
     {
         $startTime = microtime(true);
         $settledPromise = Utils::settle($promises);
-        
+
         // Poll the promise state until it's resolved or timeout
         while (true) {
             $state = $settledPromise->getState();
-            
+
             if ($state !== 'pending') {
                 // Promise is resolved, get results
                 break;
             }
-            
+
             // Check timeout
             $elapsed = microtime(true) - $startTime;
             if ($elapsed >= $timeout) {
                 throw new \RuntimeException("Operation timed out after {$timeout} seconds");
             }
-            
+
             // Small delay to avoid busy waiting
             usleep(50000); // 50ms
         }
-        
+
         $results = $settledPromise->wait();
 
         $resolved = [];
@@ -195,4 +195,3 @@ final class BatchProcessor
         return $this->provider;
     }
 }
-

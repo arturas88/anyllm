@@ -14,7 +14,7 @@ interface ContentModerationInterface
 {
     /**
      * Moderate content synchronously.
-     * 
+     *
      * @param string|array<string> $input The content to moderate (string or array of strings)
      * @param string|null $model Optional model to use for moderation
      * @return ModerationResponse|array<ModerationResponse> Single response or array of responses
@@ -23,11 +23,10 @@ interface ContentModerationInterface
 
     /**
      * Moderate content asynchronously.
-     * 
+     *
      * @param string|array<string> $input The content to moderate
      * @param string|null $model Optional model to use for moderation
      * @return PromiseInterface<ModerationResponse|array<ModerationResponse>>
      */
     public function moderateAsync(string|array $input, ?string $model = null): PromiseInterface;
 }
-

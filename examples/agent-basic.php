@@ -47,18 +47,17 @@ $codeReviewAgent = Agent::create(
 );
 
 $code = <<<'PHP'
-function calculateTotal($items) {
-    $total = 0;
-    foreach ($items as $item) {
-        $total += $item['price'];
+    function calculateTotal($items) {
+        $total = 0;
+        foreach ($items as $item) {
+            $total += $item['price'];
+        }
+        return $total;
     }
-    return $total;
-}
-PHP;
+    PHP;
 
 $review = $codeReviewAgent->run("Review this PHP code:\n\n{$code}");
 
 echo "Code Review:\n{$review->content}\n\n";
 
 echo "All examples completed!\n";
-

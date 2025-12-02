@@ -140,7 +140,7 @@ final class FakeProvider implements ProviderInterface
         ];
 
         $response = $this->nextResponse() ?? TextResponse::fake(['text' => 'Fake async response']);
-        
+
         return Promise::promiseFor($response);
     }
 
