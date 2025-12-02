@@ -88,9 +88,10 @@
         "test": "phpunit",
         "test-coverage": "phpunit --coverage-html coverage",
         "cs-fix": "php-cs-fixer fix",
+        "cs-check": "php-cs-fixer fix --dry-run --diff",
         "phpstan": "phpstan analyse src --memory-limit=2G",
         "check": [
-            "@cs-fix -- --dry-run --diff",
+            "@cs-check",
             "@phpstan",
             "@test"
         ],
