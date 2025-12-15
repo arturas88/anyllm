@@ -259,19 +259,58 @@ final class OpenRouterProvider extends AbstractProvider
         ?string $schemaDescription = null,
         array $options = [],
     ): StructuredResponse {
+        $jsonSchema = $schema instanceof Schema
+            ? $schema->toJsonSchema()
+            : Schema::fromClass($schema)->toJsonSchema(); // @phpstan-ignore-line
+
         $messages = is_array($prompt)
             ? $this->formatMessages($prompt)
             : [['role' => 'user', 'content' => $prompt]];
 
         // OpenRouter supports response_format for compatible models
+        // For models that support structured output (like Gemini), use json_schema format
         $response = $this->request('chat.create', '/chat/completions', [
             'model' => $model,
             'messages' => $messages,
-            'response_format' => ['type' => 'json_object'],
+            'response_format' => [
+                'type' => 'json_schema',
+                'json_schema' => [
+                    'name' => $schemaName ?? 'response',
+                    'description' => $schemaDescription,
+                    'schema' => $jsonSchema,
+                    'strict' => true,
+                ],
+            ],
             ...$options,
         ]);
 
-        $content = $response['choices'][0]['message']['content'] ?? '{}';
+        // The response structure varies - sometimes content is in choices[0].message.content,
+        // sometimes it's at the root level (after mapping)
+        $message = $response['choices'][0]['message'] ?? $response;
+
+        // Check for refusal
+        if (isset($message['refusal']) && $message['refusal'] !== null) {
+            throw new \AnyLLM\Exceptions\InvalidRequestException(
+                "Model refused to generate structured output: {$message['refusal']}"
+            );
+        }
+
+        // Try to get content from different possible locations
+        $content = $message['content']
+            ?? $response['content']
+            ?? $response['choices'][0]['message']['content']
+            ?? null;
+
+        // If content is null or empty, provide better error message
+        if ($content === null || $content === '') {
+            $finishReason = $message['finish_reason'] ?? $response['finish_reason'] ?? 'unknown';
+            throw new \AnyLLM\Exceptions\InvalidRequestException(
+                "OpenRouter returned empty content. Finish reason: {$finishReason}. "
+                . "This may indicate: 1) Model doesn't support structured outputs, "
+                . "2) Schema validation error, or 3) Model rejected the request. "
+                . "Response: " . json_encode($response)
+            );
+        }
 
         return StructuredResponse::fromArray([
             'content' => $content,

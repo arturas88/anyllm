@@ -46,12 +46,12 @@ final readonly class FileContent implements Content
      */
     public function toOpenAIFormat(): array
     {
-        // OpenAI handles files differently based on provider
+        // OpenAI/OpenRouter uses image_url for PDFs and other document types
+        // since they process them as visual content
         return [
-            'type' => 'file',
-            'file' => [
-                'filename' => $this->filename,
-                'data' => "data:{$this->mediaType};base64,{$this->data}",
+            'type' => 'image_url',
+            'image_url' => [
+                'url' => "data:{$this->mediaType};base64,{$this->data}",
             ],
         ];
     }
