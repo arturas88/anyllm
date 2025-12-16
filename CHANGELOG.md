@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-12-16
+
+### Added
+- **Automatic Prompt Enhancement for Structured Outputs**
+  - Field names are now automatically extracted from PHP classes and appended to prompts
+  - Ensures models use exact field names matching the schema
+  - Works with both Message objects and string prompts
+  - Automatically handles UserMessage objects with string or array content
+
+- **Automatic Field Name Transformation and Hydration**
+  - Generic, schema-driven field name matching (no hardcoded mappings)
+  - Automatically handles common field name mismatches (snake_case ↔ camelCase)
+  - Pattern-based prefix/suffix removal for flexible matching
+  - Automatic nested structure flattening (e.g., `early_payment.amount` → `early_amount`)
+  - Recursive search in nested structures for missing fields
+  - Works with any schema without configuration
+
+- **New Example: Structured Data Extraction**
+  - Comprehensive example demonstrating automatic prompt enhancement
+  - Shows automatic field transformation and hydration
+  - Traffic document extraction with complex nested schemas
+  - Demonstrates best practices for structured outputs
+
+### Changed
+- `Schema::toFieldList()` now generates human-readable field lists from PHP classes
+- `Schema::hydrate()` now includes automatic transformation before hydration
+- `OpenRouterProvider::generateObject()` automatically enhances prompts with field names
+- Example files renamed for consistency (document-structured.pdf, image-chaotic.png, etc.)
+
+### Fixed
+- Fixed field name mismatches between model responses and PHP class properties
+- Improved handling of nested structures that don't match expected flat schema
+- Better support for Message objects in prompt enhancement
+
 ## [1.3.0] - 2025-12-16
 
 ### Added

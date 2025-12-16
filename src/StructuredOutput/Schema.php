@@ -115,6 +115,94 @@ final class Schema
     }
 
     /**
+     * Generate a human-readable field list from the schema for prompt enhancement
+     * @return string
+     */
+    public function toFieldList(): string
+    {
+        if ($this->targetClass === null) {
+            return '';
+        }
+
+        return self::generateFieldList($this->targetClass);
+    }
+
+    /**
+     * Generate a human-readable field list from a PHP class
+     * @template TClass of object
+     * @param class-string<TClass> $class
+     * @param string $prefix
+     * @param int $depth
+     * @return string
+     */
+    private static function generateFieldList(string $class, string $prefix = '', int $depth = 0): string
+    {
+        if ($depth > 5) { // Prevent infinite recursion
+            return '';
+        }
+
+        if (!class_exists($class)) {
+            return '';
+        }
+
+        $reflection = new ReflectionClass($class);
+        $lines = [];
+        $indent = str_repeat('  ', $depth);
+
+        foreach ($reflection->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
+            $name = $property->getName();
+            $fullName = $prefix ? "{$prefix}.{$name}" : $name;
+
+            // Get description from attribute
+            $descAttr = $property->getAttributes(Description::class)[0] ?? null;
+            $description = $descAttr ? $descAttr->newInstance()->value : '';
+
+            // Get type information
+            $type = $property->getType();
+            $typeName = 'mixed';
+            $isArray = false;
+
+            if ($type instanceof ReflectionNamedType) {
+                $typeName = $type->getName();
+                $isArray = $typeName === 'array';
+            }
+
+            // Check for ArrayOf attribute
+            $arrayOfAttr = $property->getAttributes(ArrayOf::class)[0] ?? null;
+            if ($arrayOfAttr) {
+                $itemClass = $arrayOfAttr->newInstance()->class;
+                $isArray = true;
+                $typeName = $itemClass;
+            }
+
+            // Format type for display
+            $typeDisplay = $isArray ? "array of {$typeName}" : $typeName;
+            if ($type?->allowsNull()) {
+                $typeDisplay .= ' (nullable)';
+            }
+
+            // Build field description
+            $fieldDesc = "- {$fullName} ({$typeDisplay}";
+            if ($description) {
+                $fieldDesc .= ", {$description}";
+            }
+            $fieldDesc .= ')';
+
+            $lines[] = $indent . $fieldDesc;
+
+            // If it's a nested object, recurse
+            if ($type instanceof ReflectionNamedType && !$type->isBuiltin() && class_exists($type->getName())) {
+                $nested = self::generateFieldList($type->getName(), $fullName, $depth + 1);
+                if ($nested) {
+                    $lines[] = $nested;
+                }
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private static function propertyToSchema(ReflectionProperty $property): array
@@ -249,6 +337,285 @@ final class Schema
     }
 
     /**
+     * Transform data to handle common field name mismatches before hydration
+     * @param array<string, mixed> $data
+     * @param string $className
+     * @return array<string, mixed>
+     */
+    private static function transformData(array $data, string $className): array
+    {
+        if (!class_exists($className)) {
+            return $data;
+        }
+
+        $reflection = new ReflectionClass($className);
+        $transformed = $data;
+
+        // First, try to flatten nested structures generically
+        $transformed = self::flattenNestedStructures($transformed, $reflection);
+
+        foreach ($reflection->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
+            $expectedName = $property->getName();
+
+            // If already present, skip
+            if (array_key_exists($expectedName, $transformed)) {
+                // Still need to recursively transform nested objects
+                if (is_array($transformed[$expectedName])) {
+                    $type = $property->getType();
+                    if ($type instanceof ReflectionNamedType && !$type->isBuiltin() && class_exists($type->getName())) {
+                        $transformed[$expectedName] = self::transformData($transformed[$expectedName], $type->getName());
+                    }
+                }
+                continue;
+            }
+
+            // Generate alternative field names using generic patterns
+            $alternatives = self::getFieldNameAlternatives($expectedName);
+
+            foreach ($alternatives as $alt) {
+                // Handle nested paths (e.g., "early_payment.amount")
+                if (strpos($alt, '.') !== false) {
+                    $parts = explode('.', $alt);
+                    $value = $transformed;
+                    foreach ($parts as $part) {
+                        if (is_array($value) && array_key_exists($part, $value)) {
+                            $value = $value[$part];
+                        } else {
+                            $value = null;
+                            break;
+                        }
+                    }
+                    if ($value !== null) {
+                        $transformed[$expectedName] = $value;
+                        break;
+                    }
+                } elseif (array_key_exists($alt, $transformed)) {
+                    $transformed[$expectedName] = $transformed[$alt];
+                    break;
+                }
+            }
+
+            // Search for nested structures that might contain this field
+            if (!array_key_exists($expectedName, $transformed)) {
+                $found = self::findInNestedStructures($transformed, $expectedName);
+                if ($found !== null) {
+                    $transformed[$expectedName] = $found;
+                }
+            }
+
+            // Handle nested objects - recursively transform
+            if (isset($transformed[$expectedName]) && is_array($transformed[$expectedName])) {
+                $type = $property->getType();
+                if ($type instanceof ReflectionNamedType && !$type->isBuiltin() && class_exists($type->getName())) {
+                    $transformed[$expectedName] = self::transformData($transformed[$expectedName], $type->getName());
+                }
+            }
+        }
+
+        return $transformed;
+    }
+
+    /**
+     * Flatten nested structures generically by analyzing the schema
+     * Looks for patterns like {prefix_payment: {amount: X}} -> {prefix_amount: X}
+     * @param array<string, mixed> $data
+     * @param ReflectionClass<object> $reflection
+     * @return array<string, mixed>
+     */
+    private static function flattenNestedStructures(array $data, ReflectionClass $reflection): array
+    {
+        $transformed = $data;
+        $expectedFields = [];
+
+        // Get all expected field names from the class
+        foreach ($reflection->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
+            $expectedFields[] = $property->getName();
+        }
+
+        // Look for nested objects in the data
+        foreach ($data as $key => $value) {
+            if (is_array($value) && !empty($value)) {
+                // Check if this looks like a nested structure (object with sub-objects)
+                $hasNestedObjects = false;
+                foreach ($value as $subKey => $subValue) {
+                    if (is_array($subValue) && !empty($subValue) && !self::isSimpleArray($subValue)) {
+                        $hasNestedObjects = true;
+                        break;
+                    }
+                }
+
+                if ($hasNestedObjects) {
+                    // Try to flatten: look for patterns like prefix_suffix.field -> prefix_field
+                    foreach ($value as $nestedKey => $nestedValue) {
+                        if (is_array($nestedValue) && !empty($nestedValue)) {
+                            // Extract prefix from nested key (e.g., "early_payment" -> "early")
+                            $prefix = self::extractPrefix($nestedKey);
+
+                            // For each field in the nested structure, check if we expect a flattened version
+                            foreach ($nestedValue as $nestedField => $nestedFieldValue) {
+                                if (!is_array($nestedFieldValue)) {
+                                    // Try to construct expected field name: prefix + field
+                                    $candidateField = $prefix . '_' . $nestedField;
+
+                                    // Check if this candidate matches an expected field
+                                    if (in_array($candidateField, $expectedFields, true)) {
+                                        // Only flatten if the field doesn't already exist
+                                        if (!isset($transformed[$key][$candidateField])) {
+                                            $transformed[$key][$candidateField] = $nestedFieldValue;
+                                        }
+                                    }
+
+                                    // Also try direct match (e.g., if nested field name matches expected field)
+                                    if (in_array($nestedField, $expectedFields, true)) {
+                                        if (!isset($transformed[$key][$nestedField])) {
+                                            $transformed[$key][$nestedField] = $nestedFieldValue;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return $transformed;
+    }
+
+    /**
+     * Extract prefix from a key (e.g., "early_payment" -> "early", "bank_transfer" -> "bank")
+     * @param string $key
+     * @return string
+     */
+    private static function extractPrefix(string $key): string
+    {
+        // Try to extract prefix before common suffixes
+        $suffixes = ['_payment', '_transfer', '_card', '_device', '_info', '_data'];
+        foreach ($suffixes as $suffix) {
+            if (str_ends_with($key, $suffix)) {
+                return substr($key, 0, -strlen($suffix));
+            }
+        }
+
+        // If no suffix found, try to split on underscore and take first part
+        $parts = explode('_', $key);
+        return $parts[0] ?? $key;
+    }
+
+    /**
+     * Check if array is a simple list (not an object-like structure)
+     * @param array<mixed> $arr
+     * @return bool
+     */
+    private static function isSimpleArray(array $arr): bool
+    {
+        return array_keys($arr) === range(0, count($arr) - 1);
+    }
+
+    /**
+     * Search for a field in nested structures generically
+     * @param array<string, mixed> $data
+     * @param string $fieldName
+     * @return mixed
+     */
+    private static function findInNestedStructures(array $data, string $fieldName): mixed
+    {
+        foreach ($data as $value) {
+            if (is_array($value)) {
+                // Check direct match
+                if (array_key_exists($fieldName, $value)) {
+                    return $value[$fieldName];
+                }
+
+                // Recursively search nested structures
+                $found = self::findInNestedStructures($value, $fieldName);
+                if ($found !== null) {
+                    return $found;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get alternative field names using generic patterns (no hardcoded mappings)
+     * @param string $fieldName
+     * @return array<string>
+     */
+    private static function getFieldNameAlternatives(string $fieldName): array
+    {
+        $alternatives = [];
+
+        // Add snake_case version
+        $snakeName = self::camelToSnake($fieldName);
+        if ($snakeName !== $fieldName) {
+            $alternatives[] = $snakeName;
+        }
+
+        // Add camelCase version
+        $camelName = self::snakeToCamel($fieldName);
+        if ($camelName !== $fieldName) {
+            $alternatives[] = $camelName;
+        }
+
+        // Try removing common prefixes
+        $prefixes = ['document_', 'primary_', 'secondary_', 'registration_', 'vehicle_', 'appeal_', 'early_', 'standard_', 'late_', 'online_', 'device_', 'measurement_'];
+        foreach ($prefixes as $prefix) {
+            if (str_starts_with($fieldName, $prefix)) {
+                $withoutPrefix = substr($fieldName, strlen($prefix));
+                if ($withoutPrefix) {
+                    $alternatives[] = $withoutPrefix;
+                }
+            }
+        }
+
+        // Try removing common suffixes
+        $suffixes = ['_kmh', '_code', '_id', '_type', '_name', '_date', '_time', '_amount', '_deadline'];
+        foreach ($suffixes as $suffix) {
+            if (str_ends_with($fieldName, $suffix)) {
+                $withoutSuffix = substr($fieldName, 0, -strlen($suffix));
+                if ($withoutSuffix) {
+                    $alternatives[] = $withoutSuffix;
+                }
+            }
+        }
+
+        // Try singular/plural conversions
+        if (str_ends_with($fieldName, 's') && strlen($fieldName) > 1) {
+            $singular = substr($fieldName, 0, -1);
+            $alternatives[] = $singular;
+        } elseif (!str_ends_with($fieldName, 's')) {
+            $plural = $fieldName . 's';
+            $alternatives[] = $plural;
+        }
+
+        // Try nested path patterns (e.g., early_amount -> early_payment.amount)
+        // This is a heuristic: if field has a prefix, try prefix_payment.field or prefix_transfer.field
+        $parts = explode('_', $fieldName);
+        if (count($parts) >= 2) {
+            $prefix = $parts[0];
+            $suffix = implode('_', array_slice($parts, 1));
+
+            // Common nested patterns
+            $nestedPrefixes = ['payment', 'transfer', 'card', 'device', 'info'];
+            foreach ($nestedPrefixes as $nestedPrefix) {
+                $alternatives[] = "{$prefix}_{$nestedPrefix}.{$suffix}";
+            }
+        }
+
+        return array_unique($alternatives);
+    }
+
+    /**
+     * Convert snake_case to camelCase
+     */
+    private static function snakeToCamel(string $str): string
+    {
+        return lcfirst(str_replace('_', '', ucwords($str, '_')));
+    }
+
+    /**
      * @template TClass of object
      * @param class-string<TClass> $class
      * @param array<string, mixed> $data
@@ -257,6 +624,9 @@ final class Schema
     private static function hydrate(string $class, array $data): object
     {
         /** @var class-string<TClass> $class */
+        // Transform data to handle common mismatches
+        $data = self::transformData($data, $class);
+
         $reflection = new ReflectionClass($class);
         $instance = $reflection->newInstanceWithoutConstructor();
 

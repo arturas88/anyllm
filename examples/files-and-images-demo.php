@@ -37,7 +37,7 @@ echo "1. Local Simple PDF with OpenAI\n";
 echo str_repeat('-', 50) . "\n";
 
 try {
-    $localPdfPath = __DIR__ . '/simple-document.pdf';
+    $localPdfPath = __DIR__ . '/document-structured.pdf';
 
     if (file_exists($localPdfPath)) {
         $response = $openai->chat(
@@ -68,7 +68,7 @@ echo "2. Local Hard PDF with OpenAI\n";
 echo str_repeat('-', 50) . "\n";
 
 try {
-    $hardPdfPath = __DIR__ . '/hard-document.pdf';
+    $hardPdfPath = __DIR__ . '/document-unordered.pdf';
 
     if (file_exists($hardPdfPath)) {
         $response = $openai->chat(
@@ -99,7 +99,7 @@ echo "3. Explicit FileContent Usage\n";
 echo str_repeat('-', 50) . "\n";
 
 try {
-    $localPdfPath = __DIR__ . '/simple-document.pdf';
+    $localPdfPath = __DIR__ . '/document-structured.pdf';
 
     if (file_exists($localPdfPath)) {
         // Create FileContent explicitly for more control
@@ -136,7 +136,7 @@ echo "4. Local Structured Image with OpenAI\n";
 echo str_repeat('-', 50) . "\n";
 
 try {
-    $localImagePath = __DIR__ . '/structured-image.png';
+    $localImagePath = __DIR__ . '/image-structured.png';
 
     if (file_exists($localImagePath)) {
         $response = $openai->chat(
@@ -166,7 +166,7 @@ echo "5. Local Chaotic Image with OpenAI\n";
 echo str_repeat('-', 50) . "\n";
 
 try {
-    $chaoticImagePath = __DIR__ . '/chaotic-image.png';
+    $chaoticImagePath = __DIR__ . '/image-chaotic.png';
 
     if (file_exists($chaoticImagePath)) {
         $response = $openai->chat(
@@ -196,8 +196,8 @@ echo "6. Multiple Images (Structured + Chaotic) with OpenAI\n";
 echo str_repeat('-', 50) . "\n";
 
 try {
-    $structuredImagePath = __DIR__ . '/structured-image.png';
-    $chaoticImagePath = __DIR__ . '/chaotic-image.png';
+    $structuredImagePath = __DIR__ . '/image-structured.png';
+    $chaoticImagePath = __DIR__ . '/image-chaotic.png';
 
     if (file_exists($structuredImagePath) && file_exists($chaoticImagePath)) {
         $response = $openai->chat(
@@ -234,7 +234,7 @@ echo "7. Local Simple PDF with OpenRouter\n";
 echo str_repeat('-', 50) . "\n";
 
 try {
-    $localPdfPath = __DIR__ . '/simple-document.pdf';
+    $localPdfPath = __DIR__ . '/document-structured.pdf';
 
     if (file_exists($localPdfPath)) {
         $response = $openrouter->chat(
@@ -265,7 +265,7 @@ echo "8. Local Hard PDF with OpenRouter\n";
 echo str_repeat('-', 50) . "\n";
 
 try {
-    $hardPdfPath = __DIR__ . '/hard-document.pdf';
+    $hardPdfPath = __DIR__ . '/document-unordered.pdf';
 
     if (file_exists($hardPdfPath)) {
         $response = $openrouter->chat(
@@ -296,7 +296,7 @@ echo "9. Local Structured Image with OpenRouter\n";
 echo str_repeat('-', 50) . "\n";
 
 try {
-    $structuredImagePath = __DIR__ . '/structured-image.png';
+    $structuredImagePath = __DIR__ . '/image-structured.png';
 
     if (file_exists($structuredImagePath)) {
         $response = $openrouter->chat(
@@ -326,8 +326,8 @@ echo "10. Mixed Content (PDF + Image) with OpenRouter\n";
 echo str_repeat('-', 50) . "\n";
 
 try {
-    $simplePdfPath = __DIR__ . '/simple-document.pdf';
-    $structuredImagePath = __DIR__ . '/structured-image.png';
+    $simplePdfPath = __DIR__ . '/document-structured.pdf';
+    $structuredImagePath = __DIR__ . '/image-structured.png';
 
     if (file_exists($simplePdfPath) && file_exists($structuredImagePath)) {
         $response = $openrouter->chat(
@@ -364,8 +364,8 @@ echo "11. Multiple PDFs (Simple + Hard) with OpenAI\n";
 echo str_repeat('-', 50) . "\n";
 
 try {
-    $simplePdfPath = __DIR__ . '/simple-document.pdf';
-    $hardPdfPath = __DIR__ . '/hard-document.pdf';
+    $simplePdfPath = __DIR__ . '/document-structured.pdf';
+    $hardPdfPath = __DIR__ . '/document-unordered.pdf';
 
     // Mix local PDFs
     $files = [];
