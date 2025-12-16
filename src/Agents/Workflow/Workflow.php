@@ -104,7 +104,14 @@ final class Workflow
                 $prompt = $this->interpolate($step->prompt, $context);
                 $shouldProceed = ($this->beforeStepCallback)($step->name, $prompt, $context);
                 if ($shouldProceed === false) {
-                    // Skip this step
+                    // Skip this step - set variable to null so subsequent steps don't break
+                    $context->setVariable($step->name, null);
+                    // Create a StepResult indicating it was skipped
+                    $stepResults[$step->name] = new StepResult(
+                        step: $step->name,
+                        output: null,
+                        usage: null,
+                    );
                     continue;
                 }
             }
@@ -123,9 +130,15 @@ final class Workflow
             $context->setVariable($step->name, $result->output);
         }
 
+        // Check if stepResults is empty before accessing
+        if (empty($stepResults)) {
+            throw new \RuntimeException('Workflow completed with no executed steps. All steps were skipped or workflow has no steps.');
+        }
+
+        $lastStep = end($stepResults);
         return new WorkflowResult(
             stepResults: $stepResults,
-            finalOutput: end($stepResults)->output,
+            finalOutput: $lastStep->output,
             context: $context,
         );
     }

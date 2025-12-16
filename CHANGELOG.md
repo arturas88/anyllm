@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2025-12-16
+
+### Added
+- **Remote File Support in FileContent**
+  - Added `FileContent::fromUrl()` method to fetch files from HTTP/HTTPS URLs
+  - `FileContent::fromPath()` now automatically detects and handles remote URLs
+  - Supports both cURL and `file_get_contents` with proper error handling
+  - Automatic media type detection from content and URL extensions
+  - Comprehensive MIME type mapping for common file types (PDF, DOCX, XLSX, CSV, etc.)
+
+- **Enhanced PDF and Document Support**
+  - Updated `FileContent::toOpenAIFormat()` to use proper `file` type with `file_data` format
+  - Compatible with both OpenAI and OpenRouter PDF processing APIs
+  - Supports base64-encoded data URIs for local and remote files
+  - Proper filename inclusion in file content format
+
+- **New Example: Files and Images Demo**
+  - Comprehensive example demonstrating local and remote file handling
+  - Shows PDF and image processing with OpenAI and OpenRouter
+  - Includes sample files for testing (PDFs and images)
+  - Demonstrates mixed content (text + files + images) in single requests
+
+### Fixed
+- Fixed PDF format to use `file` type with `file_data` instead of `image_url` format
+- Resolved "Missing required parameter: file.file_id" error when sending PDFs
+- Improved error messages for file operations with better context
+- Enhanced media type detection for remote files
+
+### Changed
+- `FileContent::fromPath()` now supports both local paths and remote URLs
+- Improved file fetching with timeout, redirect handling, and SSL verification
+- Better fallback mechanisms (cURL → file_get_contents → error)
+
 ## [1.0.0] - 2025-12-01
 
 ### 🎉 Initial Release - Production-Ready!
@@ -404,6 +437,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **1.3.0** (2025-12-16) - Remote file support, enhanced PDF/document handling, new examples
+- **1.2.1** (2025-12-02) - OpenRouter structured output and file content improvements
 - **1.2.0** (2025-12-02) - Type safety improvements, PHPStan level 6, Pest migration, bug fixes
 - **1.1.0** (2025-12-02) - Agents, Workflows, Async/Promise support, Batch Processing, Content Moderation
 - **1.0.1** (2025-12-01) - Documentation improvements, bug fixes, and code quality enhancements
