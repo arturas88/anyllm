@@ -259,13 +259,73 @@ final class OpenRouterProvider extends AbstractProvider
         ?string $schemaDescription = null,
         array $options = [],
     ): StructuredResponse {
-        $jsonSchema = $schema instanceof Schema
-            ? $schema->toJsonSchema()
-            : Schema::fromClass($schema)->toJsonSchema(); // @phpstan-ignore-line
+        $schemaInstance = $schema instanceof Schema
+            ? $schema
+            : Schema::fromClass($schema); // @phpstan-ignore-line
+        
+        $jsonSchema = $schemaInstance->toJsonSchema();
 
-        $messages = is_array($prompt)
-            ? $this->formatMessages($prompt)
-            : [['role' => 'user', 'content' => $prompt]];
+        // Automatically enhance prompt with field names if schema is from a class
+        $enhancedPrompt = $prompt;
+        if (is_string($schema) && class_exists($schema)) {
+            $fieldList = $schemaInstance->toFieldList();
+            if ($fieldList) {
+                $enhancement = "\n\n**IMPORTANT: You MUST use these EXACT field names in your JSON response:**\n\n{$fieldList}\n\n**CRITICAL:** Use the EXACT field names listed above. All dates must be in YYYY-MM-DD format. All amounts must be numbers (not strings). Arrays must be arrays, not strings. If a field is not found, set it to null.";
+                
+                if (is_array($prompt)) {
+                    // Check if array contains Message objects
+                    $hasMessageObjects = !empty($prompt) && $prompt[0] instanceof Message;
+                    
+                    if ($hasMessageObjects) {
+                        // Find the last UserMessage to enhance
+                        $lastUserMessage = null;
+                        $lastUserIndex = -1;
+                        for ($i = count($prompt) - 1; $i >= 0; $i--) {
+                            if ($prompt[$i] instanceof UserMessage) {
+                                $lastUserMessage = $prompt[$i];
+                                $lastUserIndex = $i;
+                                break;
+                            }
+                        }
+                        
+                        if ($lastUserMessage !== null) {
+                            // Enhance the last UserMessage's content
+                            $content = $lastUserMessage->content;
+                            if (is_string($content)) {
+                                // Simple string content - create new message with enhanced content
+                                $enhancedPrompt = $prompt;
+                                $enhancedPrompt[$lastUserIndex] = UserMessage::create($content . $enhancement);
+                            } else {
+                                // Array content - add enhancement as new UserMessage
+                                $enhancedPrompt = $prompt;
+                                $enhancedPrompt[] = UserMessage::create($enhancement);
+                            }
+                        } else {
+                            // No UserMessage found - add enhancement as new UserMessage
+                            $enhancedPrompt = $prompt;
+                            $enhancedPrompt[] = UserMessage::create($enhancement);
+                        }
+                    } else {
+                        // Array of arrays (already formatted) - enhance the last user message
+                        $enhancedPrompt = $prompt;
+                        $lastIndex = count($enhancedPrompt) - 1;
+                        if ($lastIndex >= 0 && isset($enhancedPrompt[$lastIndex]['content'])) {
+                            $enhancedPrompt[$lastIndex]['content'] .= $enhancement;
+                        } else {
+                            // Add as new user message
+                            $enhancedPrompt[] = ['role' => 'user', 'content' => $enhancement];
+                        }
+                    }
+                } else {
+                    // String prompt - append enhancement
+                    $enhancedPrompt = $prompt . $enhancement;
+                }
+            }
+        }
+
+        $messages = is_array($enhancedPrompt)
+            ? $this->formatMessages($enhancedPrompt)
+            : [['role' => 'user', 'content' => $enhancedPrompt]];
 
         // OpenRouter supports response_format for compatible models
         // For models that support structured output (like Gemini), use json_schema format
