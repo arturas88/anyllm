@@ -10,6 +10,7 @@ use AnyLLM\Contracts\ProviderInterface;
 use AnyLLM\Http\HttpClient;
 use AnyLLM\Http\HttpClientFactory;
 use AnyLLM\Http\RetryHandler;
+use AnyLLM\Messages\Message;
 use AnyLLM\Messages\UserMessage;
 use AnyLLM\Responses\ChatResponse;
 use AnyLLM\Responses\TextResponse;
@@ -192,10 +193,17 @@ abstract class AbstractProvider implements ProviderInterface
         array $options = [],
     ): PromiseInterface {
         // Default implementation - providers can override for custom behavior
-        // This uses the same request structure as the sync chat() method
+        // Format messages if they're Message objects (like sync chat() does)
+        $formattedMessages = array_map(
+            fn($msg) => $msg instanceof Message
+                ? $msg->toProviderFormat($this->name())
+                : $msg,
+            $messages
+        );
+
         $mappedRequest = $this->mapRequest('chat.create', [
             'model' => $model,
-            'messages' => $messages,
+            'messages' => $formattedMessages,
             'temperature' => $temperature,
             'max_tokens' => $maxTokens,
             'tools' => $tools,

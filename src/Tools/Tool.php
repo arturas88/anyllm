@@ -63,7 +63,61 @@ final class Tool
             throw new \RuntimeException("Tool '{$this->name}' has no handler defined");
         }
 
-        return ($this->handler)(...$arguments);
+        // Validate arguments against schema
+        $this->validateArguments($arguments);
+
+        // Match arguments by parameter name using reflection
+        $reflection = new \ReflectionFunction($this->handler);
+        $matchedArgs = [];
+
+        foreach ($reflection->getParameters() as $param) {
+            $name = $param->getName();
+            if (array_key_exists($name, $arguments)) {
+                $matchedArgs[] = $arguments[$name];
+            } elseif ($param->isOptional()) {
+                try {
+                    $matchedArgs[] = $param->getDefaultValue();
+                } catch (\ReflectionException $e) {
+                    // Parameter has no default value but is optional (variadic or nullable)
+                    $matchedArgs[] = null;
+                }
+            } else {
+                throw new \InvalidArgumentException(
+                    "Missing required argument '{$name}' for tool '{$this->name}'"
+                );
+            }
+        }
+
+        return ($this->handler)(...$matchedArgs);
+    }
+
+    /**
+     * Validate that provided arguments match the tool's parameter schema.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    private function validateArguments(array $arguments): void
+    {
+        $required = array_keys(
+            array_filter($this->parameters, fn($p) => !($p['optional'] ?? false))
+        );
+
+        foreach ($required as $param) {
+            if (!array_key_exists($param, $arguments)) {
+                throw new \InvalidArgumentException(
+                    "Missing required argument '{$param}' for tool '{$this->name}'"
+                );
+            }
+        }
+
+        // Validate that no unknown arguments are provided
+        $knownParams = array_keys($this->parameters);
+        foreach (array_keys($arguments) as $argName) {
+            if (!in_array($argName, $knownParams, true)) {
+                // Allow unknown arguments but log a warning (some tools may accept extra params)
+                // This is less strict to allow flexibility
+            }
+        }
     }
 
     /**

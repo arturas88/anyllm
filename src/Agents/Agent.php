@@ -183,9 +183,26 @@ final class Agent
                     }
                 }
 
+                // Execute tool with error handling
                 $startTime = microtime(true);
-                $result = $tool->execute($toolCall->arguments);
-                $duration = microtime(true) - $startTime;
+                try {
+                    $result = $tool->execute($toolCall->arguments);
+                    $duration = microtime(true) - $startTime;
+                } catch (\Throwable $e) {
+                    // Log error and return error message to LLM
+                    $duration = microtime(true) - $startTime;
+                    $result = [
+                        'error' => true,
+                        'message' => $e->getMessage(),
+                        'type' => get_class($e),
+                    ];
+
+                    // Log the error for debugging
+                    error_log(
+                        "Tool execution failed: {$toolCall->name} - {$e->getMessage()} " .
+                        "in {$e->getFile()}:{$e->getLine()}"
+                    );
+                }
 
                 $toolExecution = new ToolExecution(
                     name: $toolCall->name,

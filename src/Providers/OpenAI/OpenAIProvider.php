@@ -181,50 +181,67 @@ final class OpenAIProvider extends AbstractProvider implements
         $fullContent = '';
         $toolCalls = [];
         $usage = null;
+        $streamError = null;
 
-        foreach ($this->stream('chat.create', '/chat/completions', [
-            'model' => $model,
-            'messages' => $this->formatMessages($messages),
-            'temperature' => $temperature,
-            'max_tokens' => $maxTokens,
-            'stream_options' => ['include_usage' => true],
-            ...$options,
-        ]) as $chunk) {
-            $delta = $chunk['choices'][0]['delta'] ?? [];
+        try {
+            foreach ($this->stream('chat.create', '/chat/completions', [
+                'model' => $model,
+                'messages' => $this->formatMessages($messages),
+                'temperature' => $temperature,
+                'max_tokens' => $maxTokens,
+                'stream_options' => ['include_usage' => true],
+                ...$options,
+            ]) as $chunk) {
+                $delta = $chunk['choices'][0]['delta'] ?? [];
 
-            if (isset($delta['content'])) {
-                $fullContent .= $delta['content'];
-                yield $delta['content'];
-            }
+                if (isset($delta['content'])) {
+                    $fullContent .= $delta['content'];
+                    yield $delta['content'];
+                }
 
-            if (isset($delta['tool_calls'])) {
-                foreach ($delta['tool_calls'] as $tc) {
-                    $index = $tc['index'];
-                    if (! isset($toolCalls[$index])) {
-                        $toolCalls[$index] = [
-                            'id' => $tc['id'] ?? '',
-                            'name' => '',
-                            'arguments' => '',
-                        ];
-                    }
-                    if (isset($tc['function']['name'])) {
-                        $toolCalls[$index]['name'] = $tc['function']['name'];
-                    }
-                    if (isset($tc['function']['arguments'])) {
-                        $toolCalls[$index]['arguments'] .= $tc['function']['arguments'];
+                if (isset($delta['tool_calls'])) {
+                    foreach ($delta['tool_calls'] as $tc) {
+                        $index = $tc['index'];
+                        if (! isset($toolCalls[$index])) {
+                            $toolCalls[$index] = [
+                                'id' => $tc['id'] ?? '',
+                                'name' => '',
+                                'arguments' => '',
+                            ];
+                        }
+                        if (isset($tc['function']['name'])) {
+                            $toolCalls[$index]['name'] = $tc['function']['name'];
+                        }
+                        if (isset($tc['function']['arguments'])) {
+                            $toolCalls[$index]['arguments'] .= $tc['function']['arguments'];
+                        }
                     }
                 }
-            }
 
-            if (isset($chunk['usage'])) {
-                $usage = $chunk['usage'];
+                if (isset($chunk['usage'])) {
+                    $usage = $chunk['usage'];
+                }
+            }
+        } catch (\Throwable $e) {
+            // Store error to include in response
+            $streamError = $e;
+            // Log the error
+            error_log(
+                "Stream chat error: {$e->getMessage()} in {$e->getFile()}:{$e->getLine()}"
+            );
+            // If we have partial content, continue to return it
+            // Otherwise, re-throw the exception
+            if (empty($fullContent)) {
+                throw $e;
             }
         }
 
+        // Return partial response even if stream failed
         return ChatResponse::fromArray([
             'content' => $fullContent,
             'tool_calls' => array_values($toolCalls),
             'usage' => $usage,
+            'error' => $streamError ? $streamError->getMessage() : null,
         ]);
     }
 

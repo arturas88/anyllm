@@ -193,6 +193,8 @@ final class ConversationManager
 
     /**
      * Generate a summary of older messages.
+     *
+     * @throws \Throwable Re-throws exceptions from LLM calls
      */
     public function summarize(Conversation $conversation, ProviderInterface $provider): void
     {
@@ -212,16 +214,26 @@ final class ConversationManager
         $prompt = "Summarize the following conversation concisely, preserving key information, "
                   . "decisions, and context. Be brief but comprehensive:\n\n{$conversationText}";
 
-        $response = $provider->generateText(
-            model: $this->summaryModel,
-            prompt: $prompt,
-        );
+        try {
+            $response = $provider->generateText(
+                model: $this->summaryModel,
+                prompt: $prompt,
+            );
 
-        $conversation->summary = $response->text;
-        $conversation->updatedAt = new \DateTimeImmutable();
+            $conversation->summary = $response->text;
+            $conversation->updatedAt = new \DateTimeImmutable();
 
-        if ($this->repository) {
-            $this->repository->save($conversation);
+            if ($this->repository) {
+                $this->repository->save($conversation);
+            }
+        } catch (\Throwable $e) {
+            // Log error but don't crash - conversation state remains unchanged
+            error_log(
+                "Failed to summarize conversation {$conversation->id}: {$e->getMessage()} " .
+                "in {$e->getFile()}:{$e->getLine()}"
+            );
+            // Re-throw to allow caller to handle if needed
+            throw $e;
         }
     }
 
