@@ -7,6 +7,7 @@ namespace AnyLLM\Providers;
 use AnyLLM\Config\ProviderConfig;
 use AnyLLM\Contracts\HttpClientInterface;
 use AnyLLM\Contracts\ProviderInterface;
+use AnyLLM\Http\DebugHttpClient;
 use AnyLLM\Http\HttpClient;
 use AnyLLM\Http\HttpClientFactory;
 use AnyLLM\Http\RetryHandler;
@@ -18,14 +19,17 @@ use GuzzleHttp\Promise\PromiseInterface;
 
 abstract class AbstractProvider implements ProviderInterface
 {
-    protected HttpClient $http;
+    protected HttpClientInterface $http;
     protected ?RetryHandler $retryHandler = null;
+    protected bool $debugEnabled = false;
+    /** @var callable(string, array<string, mixed>): void|null */
+    protected $debugLogger = null;
 
     public function __construct(
         protected ProviderConfig $config,
         ?HttpClientInterface $httpClient = null,
     ) {
-        if ($httpClient instanceof HttpClient) {
+        if ($httpClient !== null) {
             $this->http = $httpClient;
         } else {
             $psrClient = HttpClientFactory::create();
@@ -43,6 +47,13 @@ abstract class AbstractProvider implements ProviderInterface
             maxRetries: $retryMaxAttempts,
             initialDelayMs: $retryInitialDelay,
         );
+
+        // Check if debugging is enabled in config
+        $debugEnabled = $config->options['debug'] ?? false;
+        if ($debugEnabled) {
+            $this->debugEnabled = true;
+            $this->http = new DebugHttpClient($this->http, enabled: true);
+        }
     }
 
     public function withRetry(int $maxRetries = 3, int $initialDelayMs = 1000, float $multiplier = 2.0): static
@@ -60,6 +71,75 @@ abstract class AbstractProvider implements ProviderInterface
     {
         $clone = clone $this;
         $clone->retryHandler = null;
+        return $clone;
+    }
+
+    /**
+     * Enable debugging to see exact requests and responses sent to/from the LLM.
+     *
+     * This will log all HTTP requests and responses to stdout (or a custom logger if provided).
+     * By default, base64-encoded content (like images or files) will be truncated in logs for readability.
+     *
+     * @param callable(string, array<string, mixed>): void|null $logger Optional custom logger callback.
+     *                                                                    If null, logs to stdout with formatted output.
+     *                                                                    Callback receives: (string $type, array $data) where
+     *                                                                    $type is 'REQUEST', 'RESPONSE', or 'CHUNK'.
+     * @param bool $showFullBase64 If true, shows full base64 content in logs. If false (default), truncates base64 content.
+     * @return static
+     *
+     * @example
+     * ```php
+     * $llm = AnyLLM::provider(Provider::OpenRouter)
+     *     ->apiKey($key)
+     *     ->build()
+     *     ->withDebugging(); // Enable debugging with base64 truncation (default)
+     *
+     * $llm = $llm->withDebugging(showFullBase64: true); // Show full base64 content
+     * ```
+     */
+    public function withDebugging(?callable $logger = null, bool $showFullBase64 = false): static
+    {
+        $clone = clone $this;
+        $clone->debugEnabled = true;
+        $clone->debugLogger = $logger;
+
+        // Wrap the HTTP client with DebugHttpClient
+        // If it's already a DebugHttpClient, unwrap it first to avoid double-wrapping
+        $originalHttp = $clone->http instanceof DebugHttpClient
+            ? $clone->http->getWrappedClient()
+            : $clone->http;
+
+        $clone->http = new DebugHttpClient(
+            client: $originalHttp,
+            enabled: true,
+            logger: $logger,
+            truncateBase64: !$showFullBase64,
+        );
+
+        return $clone;
+    }
+
+    /**
+     * Disable debugging.
+     *
+     * @return static
+     *
+     * @example
+     * ```php
+     * $llm = $llm->withoutDebugging(); // Disable debugging
+     * ```
+     */
+    public function withoutDebugging(): static
+    {
+        $clone = clone $this;
+        $clone->debugEnabled = false;
+        $clone->debugLogger = null;
+
+        // Unwrap DebugHttpClient if present
+        if ($clone->http instanceof DebugHttpClient) {
+            $clone->http = $clone->http->getWrappedClient();
+        }
+
         return $clone;
     }
 

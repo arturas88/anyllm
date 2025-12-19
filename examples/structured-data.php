@@ -3,21 +3,13 @@
 /**
  * Structured Outputs Example with OpenRouter
  *
- * This example demonstrates how to correctly use OpenRouter's native structured outputs
- * feature with the AnyLLM library.
+ * Demonstrates using OpenRouter's structured outputs feature. The library automatically:
+ * - Sends schema via response_format parameter
+ * - Enhances prompts with field names from PHP classes
+ * - Transforms and hydrates responses to match your schema
  *
- * KEY POINTS:
- * 1. The schema is automatically sent via response_format parameter - you don't need to
- *    include it in your prompt text
- * 2. Field names are automatically extracted from your PHP class and appended to the prompt
- *    to ensure the model uses exact field names
- * 3. The model will automatically return JSON matching your schema exactly (with strict mode)
- * 4. Field name mismatches and nested structures are automatically transformed during hydration
- * 5. No manual transformation is needed - the library handles everything automatically
- * 6. Use models that support structured outputs (e.g., google/gemini-2.5-flash)
- *
- * For more details, see: STRUCTURED_OUTPUTS_GUIDE.md
- * OpenRouter docs: https://openrouter.ai/docs/guides/features/structured-outputs
+ * Use models that support structured outputs (e.g., google/gemini-3-flash-preview)
+ * See: https://openrouter.ai/docs/guides/features/structured-outputs
  */
 
 require __DIR__ . '/../bootstrap.php';
@@ -53,7 +45,7 @@ $prompts['extraction'] = <<<'PROMPT'
 
     **CRITICAL INSTRUCTIONS:**
     1. Extract data EXACTLY as it appears in the document
-    2. Use ISO standards: dates (YYYY-MM-DD), country codes (ISO 3166), currency codes (ISO 4217)
+    2. Use ISO standards: dates (YYYY-MM-DD), times (HH:MM:SS), dates and times (YYYY-MM-DD HH:MM:SS), country codes (ISO 3166), currency codes (ISO 4217)
     3. If a field is not present or unclear, set it to null
     4. For amounts, extract only numeric values
     5. Preserve original language text in description fields
@@ -104,442 +96,548 @@ class DocumentClassification
 // TRAFFIC DOCUMENT EXTRACTION SCHEMA
 // ========================================
 
-class Document
+final class TrafficDocumentExtraction
 {
-    #[Description('Main document/case reference number')]
-    public ?string $primary_reference = null;
+    #[Description('Document identification and high-level metadata extracted from the notice.')]
+    public ?Document $document = null;
 
-    #[Description('Secondary reference (protocol, verbale, etc.)')]
-    public ?string $secondary_reference = null;
+    #[ArrayOf(Party::class)]
+    #[Description('All organizations mentioned on the document. Include issuer + any processor/collector/law firm/court.')]
+    public array $parties = [];
 
-    #[Description('Date document was issued (YYYY-MM-DD)')]
-    public ?string $document_date = null;
+    #[Description('Vehicle identified in the notice.')]
+    public ?Vehicle $vehicle = null;
 
-    #[ArrayOf('string')]
-    #[Description('Languages in the document (ISO 639-1 codes)')]
-    public array $languages = [];
+    #[Description('Person or company receiving the notice.')]
+    public ?Addressee $addressee = null;
 
-    #[Description('Document type: traffic_fine, parking_fine, toll_notice, driver_identification, collection_notice, payment_reminder')]
-    public ?string $document_type = null;
+    #[Description('Violation details (time, type, location, legal basis).')]
+    public ?Violation $violation = null;
 
-    #[Description('Processing stage: original, reminder, collection, enforcement')]
-    public ?string $stage = null;
+    #[Description('Speed-specific details if the violation is speed-related; otherwise null.')]
+    public ?SpeedData $speed_data = null;
+
+    #[Description('Amounts, fees, and payment tiers (early/standard/late/enforcement).')]
+    public ?FinancialSummary $financial = null;
+
+    #[ArrayOf(PaymentMethod::class)]
+    #[Description('Payment methods available on the document. Can include bank transfer and/or online portal options.')]
+    public array $payment_methods = [];
+
+    #[Description('Driver identification request details (if the document asks to identify the driver).')]
+    public ?DriverIdentification $driver_identification = null;
+
+    #[Description('Appeal/objection information and deadlines if available.')]
+    public ?Appeal $appeal = null;
+
+    #[Description('How to access photographic or other evidence (portal URL + access codes).')]
+    public ?EvidenceAccess $evidence_access = null;
+
+    #[Description('Metadata about the extraction process and any uncertainties.')]
+    public ?ExtractionMetadata $extraction_metadata = null;
 }
 
-class Authority
+final class Document
 {
-    #[Description('Full name of authority')]
-    public ?string $name = null;
-
-    #[Description('ISO 3166-1 alpha-2 (AT, IT, NL, NO, DE, PL, LT, etc.)')]
-    public ?string $country_code = null;
-
-    #[Description('Authority type: police, municipality, regional_authority, toll_operator, private_parking, collection_agency, law_firm')]
+    #[Description('Document type enum: traffic_fine, parking_fine, toll_notice, driver_identification, collection_notice, payment_reminder, court_decision, other, unknown.')]
     public ?string $type = null;
 
-    #[Description('City/municipality')]
+    #[Description('Processing stage enum: original, reminder, collection, enforcement, unknown.')]
+    public ?string $stage = null;
+
+    #[Description('Document issue date formatted as YYYY-MM-DD (e.g. 2025-03-19).')]
+    public ?string $issued_at = null;
+
+    #[Description('Service/delivery/notification date if explicitly stated; format YYYY-MM-DD. If not stated, null.')]
+    public ?string $served_at = null;
+
+    #[ArrayOf('string')]
+    #[Description('Detected languages present in the document as ISO 639-1 codes (e.g. ["it","en"]).')]
+    public array $languages = [];
+
+    #[Description('Primary language of the document if clearly identifiable; ISO 639-1 (e.g. "it").')]
+    public ?string $primary_language = null;
+
+    #[Description('Issuing country code if determinable from the document; ISO 3166-1 alpha-2 (e.g. "IT").')]
+    public ?string $issuer_country_code = null;
+
+    #[ArrayOf(DocumentIdentifier::class)]
+    #[Description('All identifiers printed on the notice (case/protocol/notice/decision/etc.). Preserve raw formatting.')]
+    public array $identifiers = [];
+}
+
+final class DocumentIdentifier
+{
+    #[Description('Identifier type enum: case_number, protocol_number, notice_number, decision_number, internal_registry_id, payment_reference, web_access_code, barcode_id, other, unknown.')]
+    public string $type;
+
+    #[Description('Identifier value exactly as printed (string). Keep slashes/dashes/spaces.')]
+    public string $value;
+
+    #[Description('Label text near the value, if available (e.g. "CJIB-nummer", "Protocol number", "ROIK").')]
+    public ?string $label = null;
+
+    #[Description('Where it appears enum: header, payment_section, portal_section, footer, envelope, attachment, unknown.')]
+    public ?string $context = null;
+}
+
+final class Party
+{
+    #[Description('Party role enum: issuer, processor, police, municipality, regional_authority, toll_operator, private_parking, collection_agency, law_firm, court, other, unknown.')]
+    public ?string $role = null;
+
+    #[Description('Full organization name as printed.')]
+    public ?string $name = null;
+
+    #[Description('Country of the party as ISO 3166-1 alpha-2 (e.g. "NL").')]
+    public ?string $country_code = null;
+
+    #[Description('City/municipality name (free text as printed).')]
     public ?string $city = null;
 
-    #[Description('Region/province/state')]
+    #[Description('Region/province/state name (free text as printed).')]
     public ?string $region = null;
 
-    #[Description('Full postal address')]
-    public ?string $address = null;
+    #[Description('Postal address structured into fields.')]
+    public ?PostalAddress $address = null;
 
-    #[Description('Contact phone')]
+    #[Description('Contact details (phone/email/website).')]
+    public ?ContactDetails $contact = null;
+}
+
+final class PostalAddress
+{
+    #[Description('Street address line 1 (e.g. "Via Roma 12").')]
+    public ?string $line1 = null;
+
+    #[Description('Street address line 2 / building / unit / PO box (optional).')]
+    public ?string $line2 = null;
+
+    #[Description('Postal/ZIP code as printed (string; keep leading zeros).')]
+    public ?string $postal_code = null;
+
+    #[Description('City/locality as printed.')]
+    public ?string $city = null;
+
+    #[Description('Region/province/state as printed.')]
+    public ?string $region = null;
+
+    #[Description('Country code as ISO 3166-1 alpha-2 (e.g. "DE").')]
+    public ?string $country_code = null;
+}
+
+final class ContactDetails
+{
+    #[Description('Contact phone number as printed. Keep spaces/+ prefixes.')]
     public ?string $phone = null;
 
-    #[Description('Contact email')]
+    #[Description('Contact email address in standard email format (e.g. "info@example.com").')]
     public ?string $email = null;
 
-    #[Description('Website URL')]
+    #[Description('Website URL (absolute) if present (e.g. "https://example.org").')]
     public ?string $website = null;
 }
 
-class Vehicle
+final class Vehicle
 {
-    #[Description('License plate number')]
+    #[Description('License plate/registration number as printed.')]
     public ?string $registration_number = null;
 
-    #[Description('Country of registration (ISO 3166-1 alpha-2)')]
-    public ?string $registration_country = null;
+    #[Description('Vehicle Identification Number (VIN), 17 characters if present.')]
+    public ?string $vin = null;
 
-    #[Description('Vehicle category: car, truck, trailer, semi_trailer, bus, motorcycle, van, other, unknown')]
-    public ?string $vehicle_category = null;
+    #[Description('Country of registration as ISO 3166-1 alpha-2 (e.g. "LT").')]
+    public ?string $registration_country_code = null;
 
-    #[Description('Manufacturer/brand')]
+    #[Description('Vehicle type enum: car, motorcycle, van, bus, truck, lorry, tractor, trailer, semitrailer, autotrain, autotrailer, other, unknown.')]
+    public ?string $type = null;
+
+    #[Description('Manufacturer/brand (e.g. "Volkswagen", "Volvo", "Schmitz", "MAN").')]
     public ?string $make = null;
 
-    #[Description('Vehicle model')]
+    #[Description('Model (e.g. "Passat", "XC90", "Q7", "FH500", "Actros").')]
     public ?string $model = null;
-
-    #[Description('Vehicle Identification Number')]
-    public ?string $vin = null;
 }
 
-class Addressee
+final class Addressee
 {
-    #[Description('Full name of person or company')]
+    #[Description('Full name of person or company as printed.')]
     public ?string $name = null;
 
-    #[Description('True if addressee is a company')]
+    #[Description('True if addressee is a company; false if person; null if unknown.')]
     public ?bool $is_company = null;
 
-    #[Description('Street and number')]
+    #[Description('Street address line 1 (e.g. "Gedimino pr. 1").')]
     public ?string $street_address = null;
 
-    #[Description('City')]
+    #[Description('City/locality as printed.')]
     public ?string $city = null;
 
-    #[Description('Postal/ZIP code')]
+    #[Description('Postal/ZIP code as printed (string; keep leading zeros).')]
     public ?string $postal_code = null;
 
-    #[Description('Country')]
-    public ?string $country = null;
+    #[Description('Country code as ISO 3166-1 alpha-2 (e.g. "LT").')]
+    public ?string $country_code = null;
 
-    #[Description('Role of addressee: owner, lessee, driver, operator, responsible_party, unknown')]
+    #[Description('Role enum: owner, lessee, driver, operator, responsible_party, keeper, unknown.')]
     public ?string $role = null;
 }
 
-class Violation
+final class Violation
 {
-    #[Description('Date of violation (YYYY-MM-DD)')]
-    public ?string $date = null;
+    #[Description('Violation datetime in ISO 8601: YYYY-MM-DDTHH:MM:SS (use seconds if available; otherwise omit seconds).')]
+    public ?string $violation_at = null;
 
-    #[Description('Time of violation (HH:MM or HH:MM:SS)')]
-    public ?string $time = null;
+    #[Description('Timezone for violation_at as IANA TZ (e.g. "Europe/Rome", "Europe/Amsterdam"). Null if unknown.')]
+    public ?string $timezone = null;
 
-    #[Description('Validation/confirmation datetime (YYYY-MM-DD HH:MM:SS or YYYY-MM-DD HH:MM) if different')]
-    public ?string $datetime_validation = null;
+    #[Description('Validation/confirmation datetime if separately stated; ISO 8601 (YYYY-MM-DDTHH:MM[:SS]).')]
+    public ?string $validated_at = null;
 
-    #[Description('Violation type: speeding, excessive_speeding, red_light, parking_violation, toll_evasion, lane_violation, illegal_overtaking, no_insurance, no_registration, dangerous_driving, mobile_phone, seatbelt, wrong_category_parking, overtime_parking, no_payment_parking, other, unknown')]
+    #[Description('Violation type enum: speeding, excessive_speeding, red_light, parking_violation, toll_evasion, lane_violation, illegal_overtaking, no_insurance, no_registration, dangerous_driving, mobile_phone, seatbelt, wrong_category_parking, overtime_parking, no_payment_parking, other, unknown.')]
     public ?string $type = null;
 
-    #[Description('Full description of violation')]
+    #[Description('Free-text description of the violation as printed, in the document language.')]
     public ?string $description = null;
 
-    #[Description('Legal article/law reference')]
+    #[Description('Legal article/law reference as printed (e.g. "Art. 142 C.d.S.").')]
     public ?string $law_reference = null;
 
-    #[Description('Complete location description')]
-    public ?string $location_full = null;
+    #[Description('Structured location information (road, km marker, municipality, geo).')]
+    public ?Location $location = null;
+}
 
-    #[Description('Road/street name')]
+final class Location
+{
+    #[Description('Complete location text as printed (can include city, road, direction).')]
+    public ?string $full_text = null;
+
+    #[Description('Road/street name (free text).')]
     public ?string $road_name = null;
 
-    #[Description('Road type: highway, national, regional, municipal, private')]
+    #[Description('Road type enum: highway, national, regional, municipal, private, unknown.')]
     public ?string $road_type = null;
 
-    #[Description('Kilometer position')]
+    #[Description('Kilometer marker/position as printed (string, may include "+").')]
     public ?string $kilometer_marker = null;
 
-    #[Description('Travel direction')]
+    #[Description('Travel direction as printed (e.g. "towards Milano").')]
     public ?string $direction = null;
 
-    #[Description('Municipality/commune')]
+    #[Description('Municipality/commune/city related to violation location.')]
     public ?string $municipality = null;
 
-    #[Description('GPS coordinates')]
-    public ?string $coordinates = null;
+    #[Description('GPS point if present or reliably derived.')]
+    public ?GeoPoint $geo = null;
 }
 
-class SpeedData
+final class GeoPoint
 {
-    #[Description('Posted speed limit in km/h')]
+    #[Description('Latitude in decimal degrees (e.g. 54.6872).')]
+    public ?float $lat = null;
+
+    #[Description('Longitude in decimal degrees (e.g. 25.2797).')]
+    public ?float $lon = null;
+
+    #[Description('Source enum: stated, inferred, geocoded, unknown. Use stated only if printed in the document.')]
+    public ?string $source = null;
+}
+
+final class SpeedData
+{
+    #[Description('Posted speed limit in km/h (number).')]
     public ?float $limit_kmh = null;
 
-    #[Description('Raw measured speed in km/h')]
+    #[Description('Measured speed in km/h before tolerance (number).')]
     public ?float $measured_kmh = null;
 
-    #[Description('Speed after tolerance deduction')]
+    #[Description('Speed after tolerance deduction in km/h (number).')]
     public ?float $corrected_kmh = null;
 
-    #[Description('Amount over the limit')]
+    #[Description('Amount over the limit in km/h (number).')]
     public ?float $excess_kmh = null;
 
-    #[Description('Tolerance percentage applied')]
+    #[Description('Tolerance percentage applied (e.g. 5.0).')]
     public ?float $tolerance_percent = null;
 
-    #[Description('Tolerance in km/h applied')]
+    #[Description('Tolerance value in km/h applied (number).')]
     public ?float $tolerance_kmh = null;
 
-    #[Description('Speed camera/device type')]
+    #[Description('Measurement device type/name as printed (e.g. "Autovelox").')]
     public ?string $measurement_device = null;
 
-    #[Description('Device serial number')]
+    #[Description('Device serial number or ID as printed.')]
     public ?string $device_serial = null;
 
-    #[Description('Certification info')]
+    #[Description('Certification information as printed (free text).')]
     public ?string $device_certification = null;
 
-    #[Description('Last calibration date')]
-    public ?string $device_calibration_date = null;
+    #[Description('Last calibration date if stated; format YYYY-MM-DD.')]
+    public ?string $device_calibrated_at = null;
 }
 
-class Financial
+final class Money
 {
-    #[Description('Primary currency (ISO 4217: EUR, NOK, PLN, CHF, etc.)')]
-    public ?string $currency = null;
+    #[Description('Currency as ISO 4217 (e.g. "EUR", "NOK", "PLN").')]
+    public string $currency;
 
-    #[Description('Discounted early payment amount')]
-    public ?float $early_amount = null;
-
-    #[Description('Early payment deadline (YYYY-MM-DD)')]
-    public ?string $early_deadline = null;
-
-    #[Description('Days for early discount')]
-    public ?int $early_days = null;
-
-    #[Description('Standard payment amount')]
-    public ?float $standard_amount = null;
-
-    #[Description('Standard payment deadline (YYYY-MM-DD)')]
-    public ?string $standard_deadline = null;
-
-    #[Description('Day range start')]
-    public ?int $standard_days_from = null;
-
-    #[Description('Day range end')]
-    public ?int $standard_days_to = null;
-
-    #[Description('Late/enforcement payment amount')]
-    public ?float $late_amount = null;
-
-    #[Description('Date after which late amount applies')]
-    public ?string $late_after_date = null;
-
-    #[Description('Amount after first increase')]
-    public ?float $first_increase_amount = null;
-
-    #[Description('Amount after second increase')]
-    public ?float $second_increase_amount = null;
-
-    #[Description('Maximum enforceable amount')]
-    public ?float $maximum_amount = null;
-
-    #[Description('Base fine before fees')]
-    public ?float $base_fine = null;
-
-    #[Description('Administrative costs')]
-    public ?float $administrative_costs = null;
-
-    #[Description('Notification costs')]
-    public ?float $notification_costs = null;
-
-    #[Description('Collection costs')]
-    public ?float $collection_costs = null;
-
-    #[Description('Legal/court costs')]
-    public ?float $legal_costs = null;
-
-    #[Description('Alternative currency')]
-    public ?string $alt_currency = null;
-
-    #[Description('Amount in alternative currency')]
-    public ?float $alt_amount = null;
+    #[Description('Decimal amount as a string to avoid float rounding (e.g. "123.45").')]
+    public string $amount;
 }
 
-class Payment
+final class Fee
 {
-    #[Description('Bank name')]
+    #[Description('Fee type enum: administrative, notification, collection, legal, interest, other, unknown.')]
+    public ?string $type = null;
+
+    #[Description('Fee amount as Money (currency + decimal string).')]
+    public ?Money $amount = null;
+
+    #[Description('Free-text fee label as printed (optional).')]
+    public ?string $label = null;
+}
+
+final class PaymentTier
+{
+    #[Description('Tier kind enum: early, standard, late, enforcement, other, unknown.')]
+    public ?string $kind = null;
+
+    #[Description('Tier amount payable as Money (currency + decimal string).')]
+    public ?Money $amount = null;
+
+    #[Description('Original tier description/instructions as printed (optional).')]
+    public ?string $description = null;
+
+    #[Description('Deadline date for this tier; format YYYY-MM-DD if explicitly stated.')]
+    public ?string $deadline = null;
+
+    #[Description('Number of days allowed if expressed as days (e.g. "within 5 days"); integer.')]
+    public ?int $days = null;
+
+    #[Description('Basis enum for days calculation: issue_date, service_date, violation_date, unknown.')]
+    public ?string $basis = null;
+}
+
+final class FinancialSummary
+{
+    #[Description('Base fine amount before additional fees; Money.')]
+    public ?Money $base_fine = null;
+
+    #[ArrayOf(Fee::class)]
+    #[Description('Additional fees/costs listed on the notice (admin/notification/collection/legal/etc.).')]
+    public array $fees = [];
+
+    #[ArrayOf(PaymentTier::class)]
+    #[Description('Payment tiers/steps (early/standard/late/enforcement) with deadlines and/or day rules.')]
+    public array $tiers = [];
+
+    #[Description('Maximum enforceable amount if explicitly stated; Money.')]
+    public ?Money $maximum_amount = null;
+}
+
+final class PaymentMethod
+{
+    #[Description('Payment method type enum: bank_transfer, online_portal, card, cash, other, unknown.')]
+    public ?string $type = null;
+
+    #[Description('Free-text instructions for this payment method as printed (optional).')]
+    public ?string $description = null;
+
+    #[Description('Bank name for transfer if stated.')]
     public ?string $bank_name = null;
 
-    #[Description('IBAN number')]
+    #[Description('IBAN for transfer if stated. Store WITHOUT spaces, uppercase (e.g. "IT32T0200809292V00420262239").')]
     public ?string $iban = null;
 
-    #[Description('BIC/SWIFT code')]
+    #[Description('BIC/SWIFT code if stated (8 or 11 characters).')]
     public ?string $bic_swift = null;
 
-    #[Description('Account holder name')]
+    #[Description('Account holder name if stated.')]
     public ?string $account_holder = null;
 
-    #[Description('Reference to include with payment')]
+    #[Description('Payment reference to include with payment (often mandatory). Keep raw formatting.')]
     public ?string $payment_reference = null;
 
-    #[Description('Online payment portal URL')]
+    #[Description('Online payment portal URL (absolute) if available.')]
     public ?string $online_url = null;
 
-    #[Description('Portal username/ID')]
-    public ?string $online_username = null;
+    #[Description('Portal username/ID if explicitly provided (avoid guessing).')]
+    public ?string $portal_username = null;
 
-    #[Description('Portal password')]
-    public ?string $online_password = null;
+    #[Description('Portal access code/PIN if printed. Do NOT treat as a real password; keep raw formatting.')]
+    public ?string $portal_access_code = null;
 
-    #[Description('Additional payment code/ID')]
+    #[Description('Additional payment code/ID (e.g. creditor ID, variable symbol, structured payment code).')]
     public ?string $payment_code = null;
 
-    #[Description('Creditor/tax code')]
+    #[Description('Creditor/tax identifier if stated (e.g. creditor ID / VAT / fiscal code).')]
     public ?string $creditor_id = null;
 }
 
-class DriverIdentification
+final class DriverIdentification
 {
-    #[Description('True if driver identification is requested')]
+    #[Description('True if the document requests driver identification; null if not mentioned.')]
     public ?bool $is_required = null;
 
-    #[Description('Days to respond')]
+    #[Description('Number of days allowed to respond (integer) if stated as days.')]
     public ?int $response_days = null;
 
-    #[Description('Specific deadline date (YYYY-MM-DD)')]
+    #[Description('Specific response deadline date if stated; format YYYY-MM-DD.')]
     public ?string $response_deadline = null;
 
-    #[Description('Online response portal URL')]
-    public ?string $response_portal = null;
+    #[Description('Online portal URL for driver identification response (absolute URL) if available.')]
+    public ?string $response_portal_url = null;
 
-    #[Description('Postal address for response')]
-    public ?string $response_address = null;
+    #[Description('Postal address for sending response (free text) if provided; keep as printed.')]
+    public ?string $response_address_text = null;
 
-    #[Description('Page number containing response form')]
-    public ?string $form_page = null;
+    #[Description('Page number (1-based) containing the response form if referenced; integer.')]
+    public ?int $form_page = null;
 
     #[ArrayOf('string')]
-    #[Description('Information required to provide')]
+    #[Description('List of required information items requested (e.g. ["driver_name","driver_address","license_number"]). Use stable keys.')]
     public ?array $required_information = null;
 
-    #[Description('Penalty for not responding (EUR)')]
+    #[Description('Penalty amount for not responding if stated. Decimal string preferred; float allowed if unavoidable.')]
     public ?float $penalty_for_non_response = null;
+
+    #[Description('Currency for penalty_for_non_response if used (ISO 4217).')]
+    public ?string $penalty_currency = null;
 }
 
-class Appeal
+final class Appeal
 {
-    #[Description('Days allowed to appeal')]
+    #[Description('Number of days allowed to appeal (integer) if stated.')]
     public ?int $appeal_days = null;
 
-    #[Description('Appeal deadline (YYYY-MM-DD)')]
+    #[Description('Appeal deadline date if stated; format YYYY-MM-DD.')]
     public ?string $appeal_deadline = null;
 
-    #[Description('Authority to submit appeal to')]
+    #[Description('Appeal authority name as printed (e.g. "Prefetto di ...", "Court of ...").')]
     public ?string $appeal_authority = null;
 
-    #[Description('Prefect, Justice of Peace, Court, etc.')]
+    #[Description('Appeal authority type enum: prefect, justice_of_peace, court, administrative_body, other, unknown.')]
     public ?string $appeal_authority_type = null;
 
-    #[Description('Address for appeal submission')]
-    public ?string $appeal_address = null;
+    #[Description('Address for appeal submission (free text) if present.')]
+    public ?string $appeal_address_text = null;
 
     #[ArrayOf('string')]
-    #[Description('Accepted languages for appeal')]
+    #[Description('Accepted languages for appeal as ISO 639-1 codes if stated (e.g. ["it"]).')]
     public ?array $appeal_languages = null;
 
-    #[Description('True if fee required to appeal')]
+    #[Description('True if a fee/payment is required to file an appeal; null if not mentioned.')]
     public ?bool $payment_required_for_appeal = null;
+
+    #[Description('Appeal fee amount if stated; float allowed.')]
+    public ?float $appeal_fee_amount = null;
+
+    #[Description('Appeal fee currency (ISO 4217) if appeal_fee_amount is used.')]
+    public ?string $appeal_fee_currency = null;
 }
 
-class EvidenceAccess
+final class EvidenceAccess
 {
-    #[Description('URL to view evidence')]
+    #[Description('Portal URL to view evidence (photos/video) if available; absolute URL.')]
     public ?string $portal_url = null;
 
-    #[Description('Access ID/username')]
+    #[Description('Access ID/username printed for evidence portal, if present.')]
     public ?string $access_id = null;
 
-    #[Description('Access password')]
-    public ?string $access_password = null;
+    #[Description('Access code/PIN for evidence portal as printed.')]
+    public ?string $access_code = null;
 
-    #[Description('ADI code for verification')]
-    public ?string $adi_code = null;
+    #[Description('Additional verification code if used (e.g. ADI code); keep as printed.')]
+    public ?string $verification_code = null;
 }
 
-class ExtractionMetadata
+final class ExtractionMetadata
 {
-    #[Description('Overall extraction confidence 0.0-1.0')]
+    #[Description('Overall extraction confidence score from 0.0 to 1.0.')]
     public ?float $confidence_score = null;
 
-    #[Description('Overall extraction quality assessment: high, medium, low')]
+    #[Description('Overall extraction quality enum: high, medium, low.')]
     public ?string $confidence_level = null;
 
     #[ArrayOf('string')]
-    #[Description('Fields with low extraction confidence or ambiguous data')]
+    #[Description('List of field paths that are uncertain (e.g. ["document.identifiers[0].value","financial.tiers[1].deadline"]).')]
     public ?array $uncertain_fields = null;
 
     #[ArrayOf('string')]
-    #[Description('Any assumptions made during extraction')]
+    #[Description('Assumptions made during extraction (free text).')]
     public ?array $assumptions_made = null;
 
     #[ArrayOf('string')]
-    #[Description('Expected fields not found in document')]
+    #[Description('Expected fields not found (field paths) (e.g. ["vehicle.registration_number"]).')]
     public ?array $missing_fields = null;
 
-    #[Description('Notes about extraction quality')]
+    #[Description('Notes about extraction quality, OCR artifacts, or ambiguities (free text).')]
     public ?string $extraction_notes = null;
 
-    #[Description('True if OCR was needed')]
+    #[Description('True if OCR was required to read the document; false if text was selectable; null if unknown.')]
     public ?bool $ocr_required = null;
 
-    #[Description('Main language used for extraction')]
+    #[Description('Primary language actually used for extraction (ISO 639-1), which may differ from document.primary_language.')]
     public ?string $primary_language_extracted = null;
+
+    #[Description('Extractor/schema version string (e.g. "traffic-extract-v2.1").')]
+    public ?string $schema_version = null;
+
+    #[Description('Optional model identifier used for extraction (e.g. "gpt-5.2").')]
+    public ?string $model_id = null;
 }
 
-class TrafficDocumentExtraction
+// ========================================
+// HELPER FUNCTIONS
+// ========================================
+
+/**
+ * Safely get amount and currency from a Money object.
+ * Returns null if Money is null or properties are uninitialized.
+ *
+ * @return array{amount: string, currency: string}|null
+ */
+function getMoneyValue(?Money $money): ?array
 {
-    #[Description('Document identification and metadata')]
-    public ?Document $document = null;
+    if (!$money) {
+        return null;
+    }
 
-    #[Description('Issuing authority details')]
-    public ?Authority $authority = null;
+    try {
+        if (isset($money->amount) && isset($money->currency)) {
+            return [
+                'amount' => $money->amount,
+                'currency' => $money->currency,
+            ];
+        }
+    } catch (\Error $e) {
+        // Property not initialized
+    }
 
-    #[Description('Vehicle identification')]
-    public ?Vehicle $vehicle = null;
-
-    #[Description('Person or company receiving the document')]
-    public ?Addressee $addressee = null;
-
-    #[Description('Details of the traffic violation')]
-    public ?Violation $violation = null;
-
-    #[Description('Speed violation specific data')]
-    public ?SpeedData $speed_data = null;
-
-    #[Description('All payment amounts and tiers')]
-    public ?Financial $financial = null;
-
-    #[Description('Payment method details')]
-    public ?Payment $payment = null;
-
-    #[Description('Driver identification request details')]
-    public ?DriverIdentification $driver_identification = null;
-
-    #[Description('Appeal/objection options')]
-    public ?Appeal $appeal = null;
-
-    #[Description('How to access photographic evidence')]
-    public ?EvidenceAccess $evidence_access = null;
-
-    #[Description('Metadata about the extraction process')]
-    public ?ExtractionMetadata $extraction_metadata = null;
+    return null;
 }
 
 // ========================================
 // USAGE EXAMPLE
 // ========================================
-// NOTE: Field name transformation and hydration are now handled automatically
-// by the library when using generateObject() with a PHP class schema.
-// ========================================
 
-$pdfFilePath = __DIR__ . '/document-road-fine.pdf';
+$pdfFilePath = __DIR__ . '/document-road-fine-1.pdf';
 
 // Validate file exists
 if (!file_exists($pdfFilePath)) {
     die("PDF file not found: {$pdfFilePath}\n");
 }
 
-// Create provider with retry enabled for HTTP-level errors
-// NOTE: Use a model that supports structured outputs:
-// - google/gemini-2.5-flash (recommended - fast and cost-effective)
-// - google/gemini-pro-1.5 (more capable)
-// - openai/gpt-4o (OpenAI models)
-// - anthropic/claude-3.5-sonnet (Anthropic models)
-// Check https://openrouter.ai/models?supported_parameters=structured_outputs for full list
-$useModel = 'google/gemini-2.5-flash';
+$useModel = 'google/gemini-3-flash-preview';
 
+/** @var \AnyLLM\Providers\AbstractProvider $llm */
 $llm = AnyLLM::provider(Provider::OpenRouter)
     ->apiKey($_ENV['OPENROUTER_API_KEY'] ?? 'your-key')
-    ->model($useModel)  // This model supports structured outputs
+    ->model($useModel)
     ->build()
-    ->withRetry(maxRetries: 3, initialDelayMs: 1000); // Retry HTTP errors
+    ->withRetry(maxRetries: 3, initialDelayMs: 1000)
+    ->withDebugging(); // Logs all HTTP requests/responses to stdout
 
-// Option 1: Classification only
-// NOTE: Schema is automatically sent via response_format - no need to include in prompt
 echo "=== CLASSIFICATION ===\n";
 
 $classificationMessage = UserMessage::withFiles($prompts['classification'], [$pdfFilePath]);
@@ -551,7 +649,6 @@ try {
         schema: DocumentClassification::class,
     );
 
-    // The response->object is already a properly typed DocumentClassification instance
     $classification = $classificationResponse->object;
 
     echo "Classification Result:\n";
@@ -569,26 +666,15 @@ try {
 
 echo "\n=== FULL EXTRACTION ===\n";
 
-// NOTE:
-// 1. Schema is automatically sent via response_format parameter
-// 2. Prompt is automatically enhanced with exact field names from the PHP class
-// 3. Response is automatically transformed and hydrated to match the schema
 $extractionMessage = UserMessage::withFiles($prompts['extraction'], [$pdfFilePath]);
 
 try {
-    // Option 2: Full extraction
-    // The library automatically:
-    // 1. Enhances the prompt with exact field names from the schema
-    // 2. Sends the schema via response_format to the model
-    // 3. Transforms and hydrates the response to match the PHP class structure
     $extractionResponse = $llm->withRetry(maxRetries: 5)->generateObject(
         model: $useModel,
         prompt: [$extractionMessage],
         schema: TrafficDocumentExtraction::class,
     );
 
-    // The response->object is already a properly typed TrafficDocumentExtraction instance
-    // Field name mismatches and nested structures are automatically handled
     $extraction = $extractionResponse->object;
 
     echo "Extraction completed successfully!\n";
@@ -603,31 +689,55 @@ try {
     exit(1);
 }
 
-// Debug output (uncomment to see raw response and hydrated object)
-// echo "Extraction:\n";
-// print_r($extractionResponse->raw);
-// print_r($extraction);
+// Debug output - uncomment to see raw response and hydrated object
+// echo "\n=== RAW RESPONSE DATA ===\n";
+// echo json_encode($extractionResponse->raw, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+// echo "\n\n=== HYDRATED OBJECT ===\n";
+// print_r($extractionResponse->object);
 // echo "\n";
+// die();
 
 // Display summary
 echo "\n=== DOCUMENT SUMMARY ===\n";
 
 // Check if extraction has the expected structure
 if (isset($extraction->document)) {
-    echo "Document Type: {$extraction->document->document_type}\n";
+    echo "Document Type: {$extraction->document->type}\n";
     echo "Document Stage: {$extraction->document->stage}\n";
-    echo "Reference: {$extraction->document->primary_reference}\n";
-    echo "Date: {$extraction->document->document_date}\n";
+    if (!empty($extraction->document->identifiers)) {
+        $refs = array_map(fn($id) => $id->value, $extraction->document->identifiers);
+        echo "Reference: " . implode(', ', $refs) . "\n";
+    }
+    if ($extraction->document->issued_at) {
+        echo "Date: {$extraction->document->issued_at}\n";
+    }
 } else {
     echo "Note: Document data not available in expected format.\n";
-    // Uncomment to debug:
-    // echo "Raw extraction data structure:\n";
-    // print_r($extraction);
 }
 
-if (isset($extraction->authority)) {
-    echo "\nAuthority: {$extraction->authority->name} ({$extraction->authority->country_code})\n";
-    echo "Authority Type: {$extraction->authority->type}\n";
+// Find issuer from parties array
+$issuer = null;
+if (!empty($extraction->parties)) {
+    foreach ($extraction->parties as $party) {
+        if ($party->role === 'issuer') {
+            $issuer = $party;
+            break;
+        }
+    }
+    if (!$issuer && !empty($extraction->parties)) {
+        $issuer = $extraction->parties[0]; // Fallback to first party
+    }
+}
+
+if ($issuer) {
+    echo "\nAuthority: {$issuer->name}";
+    if ($issuer->country_code) {
+        echo " ({$issuer->country_code})";
+    }
+    echo "\n";
+    if ($issuer->role) {
+        echo "Authority Type: {$issuer->role}\n";
+    }
 }
 
 if (isset($extraction->vehicle)) {
@@ -639,11 +749,12 @@ if (isset($extraction->vehicle)) {
 
 if (isset($extraction->violation)) {
     echo "\nViolation Type: {$extraction->violation->type}\n";
-    echo "Violation Date: {$extraction->violation->date}";
-    if ($extraction->violation->time) {
-        echo " at {$extraction->violation->time}";
+    if ($extraction->violation->violation_at) {
+        echo "Violation Date/Time: {$extraction->violation->violation_at}\n";
     }
-    echo "\nLocation: {$extraction->violation->location_full}\n";
+    if ($extraction->violation->location && $extraction->violation->location->full_text) {
+        echo "Location: {$extraction->violation->location->full_text}\n";
+    }
 }
 
 if (isset($extraction->speed_data) && $extraction->speed_data && $extraction->speed_data->limit_kmh) {
@@ -658,38 +769,94 @@ if (isset($extraction->speed_data) && $extraction->speed_data && $extraction->sp
 
 if (isset($extraction->financial)) {
     echo "\nFinancial:\n";
-    echo "  Currency: {$extraction->financial->currency}\n";
-    if ($extraction->financial->early_amount) {
-        echo "  Early Payment: {$extraction->financial->early_amount} {$extraction->financial->currency}";
-        if ($extraction->financial->early_deadline) {
-            echo " (by {$extraction->financial->early_deadline})";
+
+    // Get currency from first tier or base_fine
+    $currency = null;
+    $baseFineValue = getMoneyValue($extraction->financial->base_fine ?? null);
+    if ($baseFineValue) {
+        $currency = $baseFineValue['currency'];
+    } elseif (!empty($extraction->financial->tiers) && $extraction->financial->tiers[0]->amount) {
+        $tierAmountValue = getMoneyValue($extraction->financial->tiers[0]->amount);
+        if ($tierAmountValue) {
+            $currency = $tierAmountValue['currency'];
         }
-        echo "\n";
     }
-    echo "  Standard Amount: {$extraction->financial->standard_amount} {$extraction->financial->currency}";
-    if ($extraction->financial->standard_deadline) {
-        echo " (by {$extraction->financial->standard_deadline})";
+
+    if ($currency) {
+        echo "  Currency: {$currency}\n";
     }
-    echo "\n";
-    if ($extraction->financial->late_amount) {
-        echo "  Late Amount: {$extraction->financial->late_amount} {$extraction->financial->currency}\n";
+
+    if ($baseFineValue) {
+        echo "  Base Fine: {$baseFineValue['amount']} {$baseFineValue['currency']}\n";
+    }
+
+    if (!empty($extraction->financial->tiers)) {
+        foreach ($extraction->financial->tiers as $tier) {
+            $tierLabel = $tier->kind ? ucfirst($tier->kind) : 'Payment';
+            $tierAmountValue = getMoneyValue($tier->amount);
+            if ($tierAmountValue) {
+                echo "  {$tierLabel}: {$tierAmountValue['amount']} {$tierAmountValue['currency']}";
+                if ($tier->deadline) {
+                    echo " (by {$tier->deadline})";
+                } elseif ($tier->days) {
+                    echo " (within {$tier->days} days)";
+                }
+                if ($tier->description) {
+                    echo " - {$tier->description}";
+                }
+                echo "\n";
+            }
+        }
+    }
+
+    $maxAmountValue = getMoneyValue($extraction->financial->maximum_amount ?? null);
+    if ($maxAmountValue) {
+        echo "  Maximum Amount: {$maxAmountValue['amount']} {$maxAmountValue['currency']}\n";
     }
 }
 
-if (isset($extraction->payment)) {
-    echo "\nPayment Details:\n";
-    echo "  IBAN: {$extraction->payment->iban}\n";
-    echo "  Reference: {$extraction->payment->payment_reference}\n";
-    if ($extraction->payment->online_url) {
-        echo "  Online Portal: {$extraction->payment->online_url}\n";
+if (!empty($extraction->payment_methods)) {
+    echo "\nPayment Methods:\n";
+    foreach ($extraction->payment_methods as $method) {
+        if ($method->type === 'bank_transfer') {
+            if ($method->iban) {
+                echo "  IBAN: {$method->iban}\n";
+            }
+            if ($method->bic_swift) {
+                echo "  BIC/SWIFT: {$method->bic_swift}\n";
+            }
+            if ($method->bank_name) {
+                echo "  Bank: {$method->bank_name}\n";
+            }
+            if ($method->account_holder) {
+                echo "  Account Holder: {$method->account_holder}\n";
+            }
+            if ($method->payment_reference) {
+                echo "  Reference: {$method->payment_reference}\n";
+            }
+        } elseif ($method->type === 'online_portal') {
+            if ($method->online_url) {
+                echo "  Online Portal: {$method->online_url}\n";
+            }
+            if ($method->portal_username) {
+                echo "  Portal Username: {$method->portal_username}\n";
+            }
+        }
     }
 }
 
 if (isset($extraction->driver_identification) && $extraction->driver_identification && $extraction->driver_identification->is_required) {
     echo "\nDriver Identification Required:\n";
-    echo "  Deadline: {$extraction->driver_identification->response_deadline}\n";
-    if ($extraction->driver_identification->response_portal) {
-        echo "  Portal: {$extraction->driver_identification->response_portal}\n";
+    if ($extraction->driver_identification->response_deadline) {
+        echo "  Deadline: {$extraction->driver_identification->response_deadline}\n";
+    } elseif ($extraction->driver_identification->response_days) {
+        echo "  Response Days: {$extraction->driver_identification->response_days}\n";
+    }
+    if ($extraction->driver_identification->response_portal_url) {
+        echo "  Portal: {$extraction->driver_identification->response_portal_url}\n";
+    }
+    if ($extraction->driver_identification->response_address_text) {
+        echo "  Address: {$extraction->driver_identification->response_address_text}\n";
     }
 }
 

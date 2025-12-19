@@ -48,11 +48,17 @@ final class StructuredResponse extends Response
             if (json_last_error() === JSON_ERROR_NONE) {
                 $content = $decoded;
             } else {
-                // If JSON decode failed, try to extract JSON from the string
-                if (preg_match('/\{.*\}/s', $content, $matches)) {
-                    $decoded = json_decode($matches[0], true);
-                    if (json_last_error() === JSON_ERROR_NONE) {
-                        $content = $decoded;
+                // Try to extract JSON from markdown code blocks (```json ... ``` or ``` ... ```)
+                $extracted = self::extractJsonFromMarkdown($content);
+                if ($extracted !== null) {
+                    $content = $extracted;
+                } else {
+                    // Fallback: try to extract JSON using regex (for non-markdown wrapped JSON)
+                    if (preg_match('/\{.*\}/s', $content, $matches)) {
+                        $decoded = json_decode($matches[0], true);
+                        if (json_last_error() === JSON_ERROR_NONE) {
+                            $content = $decoded;
+                        }
                     }
                 }
             }
@@ -81,6 +87,59 @@ final class StructuredResponse extends Response
             usage: isset($data['usage']) ? Usage::fromArray($data['usage']) : null,
             raw: $data,
         );
+    }
+
+    /**
+     * Extract JSON from markdown code blocks.
+     *
+     * Handles formats like:
+     * - ```json\n{...}\n```
+     * - ```\n{...}\n```
+     * - ```json\n{...}``` (without trailing newline)
+     *
+     * @param string $content The content that may contain markdown-wrapped JSON
+     * @return array<string, mixed>|null The decoded JSON array, or null if extraction failed
+     */
+    private static function extractJsonFromMarkdown(string $content): ?array
+    {
+        // Try to match markdown code blocks with json language identifier
+        // Pattern: ```json\n...\n``` or ```json\n...``` (with optional trailing newline)
+        // Using non-greedy match to stop at the first closing ```
+        if (preg_match('/```\s*json\s*\n(.*?)\n?```/s', $content, $matches)) {
+            $jsonContent = trim($matches[1]);
+            $decoded = json_decode($jsonContent, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                return $decoded;
+            }
+        }
+
+        // Try to match generic markdown code blocks (without language identifier)
+        // Extract content between ``` markers and check if it's valid JSON
+        if (preg_match('/```\s*\n(.*?)\n?```/s', $content, $matches)) {
+            $jsonContent = trim($matches[1]);
+            // Only try to decode if it looks like JSON (starts with { or [)
+            if (preg_match('/^\s*[\[\{]/', $jsonContent)) {
+                $decoded = json_decode($jsonContent, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    return $decoded;
+                }
+            }
+        }
+
+        // Try to match code blocks with any language identifier that might contain JSON
+        // Pattern: ```lang\n{...}\n``` or ```lang\n{...}``` where the content looks like JSON
+        if (preg_match('/```\w+\s*\n(.*?)\n?```/s', $content, $matches)) {
+            $jsonContent = trim($matches[1]);
+            // Only try to decode if it looks like JSON (starts with { or [)
+            if (preg_match('/^\s*[\[\{]/', $jsonContent)) {
+                $decoded = json_decode($jsonContent, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    return $decoded;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

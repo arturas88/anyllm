@@ -805,11 +805,37 @@ $tokens = TokenCounter::estimate($text, 'gpt-4');
 
 ### Debugging
 
+Debug HTTP requests and responses to see exactly what's being sent to and received from LLM providers:
+
 ```php
-// Enable detailed logging
-use AnyLLM\Logging\LoggerFactory;
-$logger = LoggerFactory::create('file', ['log_path' => './logs']);
+// Enable debugging (logs to stdout by default)
+$llm = $llm->withDebugging();
+
+// With custom logger
+$llm = $llm->withDebugging(function(string $type, array $data) {
+    // $type is 'REQUEST', 'RESPONSE', or 'CHUNK'
+    error_log(json_encode(['type' => $type, 'data' => $data]));
+});
+
+// Show full base64 content (default: truncated for readability)
+$llm = $llm->withDebugging(showFullBase64: true);
+
+// Disable debugging
+$llm = $llm->withoutDebugging();
+
+// Enable via config
+$llm = AnyLLM::provider(Provider::OpenAI)
+    ->apiKey($key)
+    ->option('debug', true)
+    ->build();
 ```
+
+The debug output shows:
+- **REQUEST**: Full request payload (method, endpoint, data)
+- **RESPONSE**: Complete response from the API
+- **CHUNK**: Streaming response chunks
+
+Base64-encoded content (images, PDFs, etc.) is automatically truncated in logs for readability, but you can show full content with `showFullBase64: true`.
 
 ## 🚢 Production Checklist
 

@@ -257,6 +257,30 @@ final class FakeProvider implements ProviderInterface
         throw new \RuntimeException('FakeProvider does not have an HTTP client');
     }
 
+    public function withRetry(int $maxRetries = 3, int $initialDelayMs = 1000, float $multiplier = 2.0): static
+    {
+        // FakeProvider doesn't actually retry, but we implement the interface
+        return $this;
+    }
+
+    public function withoutRetry(): static
+    {
+        // FakeProvider doesn't actually retry, but we implement the interface
+        return $this;
+    }
+
+    public function withDebugging(?callable $logger = null, bool $showFullBase64 = false): static
+    {
+        // FakeProvider doesn't actually debug, but we implement the interface
+        return $this;
+    }
+
+    public function withoutDebugging(): static
+    {
+        // FakeProvider doesn't actually debug, but we implement the interface
+        return $this;
+    }
+
     public function assertCalled(string $method, ?callable $callback = null): void
     {
         $calls = array_filter(
