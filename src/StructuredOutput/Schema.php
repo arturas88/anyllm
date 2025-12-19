@@ -351,7 +351,10 @@ final class Schema
         $reflection = new ReflectionClass($className);
         $transformed = $data;
 
-        // First, try to flatten nested structures generically
+        // First, normalize keys in nested objects (strip prefixes like "document.primary_reference" -> "primary_reference")
+        $transformed = self::normalizeNestedObjectKeys($transformed);
+
+        // Then, try to flatten nested structures generically
         $transformed = self::flattenNestedStructures($transformed, $reflection);
 
         foreach ($reflection->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
@@ -447,12 +450,22 @@ final class Schema
                 if ($hasNestedObjects) {
                     // Try to flatten: look for patterns like prefix_suffix.field -> prefix_field
                     foreach ($value as $nestedKey => $nestedValue) {
+                        // Only process string keys (skip numeric array indices)
+                        if (!is_string($nestedKey)) {
+                            continue;
+                        }
+
                         if (is_array($nestedValue) && !empty($nestedValue)) {
                             // Extract prefix from nested key (e.g., "early_payment" -> "early")
                             $prefix = self::extractPrefix($nestedKey);
 
                             // For each field in the nested structure, check if we expect a flattened version
                             foreach ($nestedValue as $nestedField => $nestedFieldValue) {
+                                // Only process string field names (skip numeric array indices)
+                                if (!is_string($nestedField)) {
+                                    continue;
+                                }
+
                                 if (!is_array($nestedFieldValue)) {
                                     // Try to construct expected field name: prefix + field
                                     $candidateField = $prefix . '_' . $nestedField;
@@ -480,6 +493,64 @@ final class Schema
         }
 
         return $transformed;
+    }
+
+    /**
+     * Normalize keys in nested objects by stripping prefixes.
+     * Handles cases like {"document": {"document.primary_reference": "value"}} 
+     * -> {"document": {"primary_reference": "value"}}
+     * 
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private static function normalizeNestedObjectKeys(array $data): array
+    {
+        $normalized = [];
+
+        foreach ($data as $key => $value) {
+            if (is_array($value) && !self::isSimpleArray($value)) {
+                // Check if this is a nested object that might have prefixed keys
+                $normalizedValue = [];
+                $prefix = $key . '.';
+                
+                foreach ($value as $nestedKey => $nestedValue) {
+                    // Only process string keys (skip numeric array indices)
+                    if (!is_string($nestedKey)) {
+                        // Keep numeric keys as-is, but recursively normalize if it's an array
+                        if (is_array($nestedValue) && !self::isSimpleArray($nestedValue)) {
+                            $normalizedValue[$nestedKey] = self::normalizeNestedObjectKeys($nestedValue);
+                        } else {
+                            $normalizedValue[$nestedKey] = $nestedValue;
+                        }
+                        continue;
+                    }
+
+                    // If the nested key starts with the parent key prefix, strip it
+                    if (str_starts_with($nestedKey, $prefix)) {
+                        $normalizedKey = substr($nestedKey, strlen($prefix));
+                        // Recursively normalize nested arrays
+                        if (is_array($nestedValue) && !self::isSimpleArray($nestedValue)) {
+                            $normalizedValue[$normalizedKey] = self::normalizeNestedObjectKeys($nestedValue);
+                        } else {
+                            $normalizedValue[$normalizedKey] = $nestedValue;
+                        }
+                    } else {
+                        // Keep the key as-is, but recursively normalize if it's an array
+                        if (is_array($nestedValue) && !self::isSimpleArray($nestedValue)) {
+                            $normalizedValue[$nestedKey] = self::normalizeNestedObjectKeys($nestedValue);
+                        } else {
+                            $normalizedValue[$nestedKey] = $nestedValue;
+                        }
+                    }
+                }
+                
+                $normalized[$key] = $normalizedValue;
+            } else {
+                $normalized[$key] = $value;
+            }
+        }
+
+        return $normalized;
     }
 
     /**
@@ -602,6 +673,12 @@ final class Schema
             foreach ($nestedPrefixes as $nestedPrefix) {
                 $alternatives[] = "{$prefix}_{$nestedPrefix}.{$suffix}";
             }
+
+            // Try word order swaps for two-word snake_case fields (e.g., bic_swift -> swift_bic)
+            if (count($parts) === 2) {
+                $swapped = $parts[1] . '_' . $parts[0];
+                $alternatives[] = $swapped;
+            }
         }
 
         return array_unique($alternatives);
@@ -613,6 +690,249 @@ final class Schema
     private static function snakeToCamel(string $str): string
     {
         return lcfirst(str_replace('_', '', ucwords($str, '_')));
+    }
+
+    /**
+     * Try to convert a non-array value to a class instance
+     * This handles cases where the LLM returns a simple value (string/number) 
+     * instead of an object for a class-typed property.
+     * 
+     * Uses reflection to automatically discover required properties and
+     * attempts to construct the object from available data in the parent context.
+     * 
+     * @param class-string $className
+     * @param mixed $value The value that was provided (might match one property)
+     * @param array<string, mixed> $parentData Context data from parent object
+     * @param string $propertyName Name of the property being set (for context)
+     * @param bool $allowsNull Whether the property allows null values
+     * @return object|null The converted object or null if conversion not possible
+     */
+    private static function tryConvertToClass(string $className, mixed $value, array $parentData, string $propertyName, bool $allowsNull): ?object
+    {
+        if (!class_exists($className)) {
+            return null;
+        }
+
+        try {
+            $reflection = new \ReflectionClass($className);
+            $instance = $reflection->newInstanceWithoutConstructor();
+            
+            // Get all public properties of the target class
+            $properties = $reflection->getProperties(\ReflectionProperty::IS_PUBLIC);
+            
+            if (empty($properties)) {
+                return null;
+            }
+
+            // Try to match the provided value to one of the properties
+            // We want to find the "best" match, not just the first match
+            $matchedProperty = null;
+            $matchedValue = $value;
+            $bestScore = -1;
+            
+            foreach ($properties as $prop) {
+                $propType = $prop->getType();
+                $propName = $prop->getName();
+                $score = 0;
+                
+                // Check if the value type matches this property's type
+                if (!self::valueMatchesType($value, $propType)) {
+                    continue;
+                }
+                
+                // Score the match based on various heuristics
+                
+                // 1. Name similarity: if context property name matches target property name
+                if (strtolower($propertyName) === strtolower($propName)) {
+                    $score += 100; // Strong preference
+                }
+                
+                // 2. Value characteristics: numeric strings prefer "amount", "price", "value", etc.
+                if (is_numeric($value) || (is_string($value) && is_numeric($value))) {
+                    $numericPropertyNames = ['amount', 'price', 'value', 'cost', 'fee', 'total', 'sum'];
+                    if (in_array(strtolower($propName), $numericPropertyNames)) {
+                        $score += 50;
+                    }
+                }
+                
+                // 3. Currency codes: 3-letter uppercase strings prefer "currency", "currency_code", etc.
+                if (is_string($value) && strlen($value) === 3 && ctype_upper($value)) {
+                    $currencyPropertyNames = ['currency', 'currency_code', 'currencyCode', 'code'];
+                    if (in_array(strtolower($propName), $currencyPropertyNames)) {
+                        $score += 50;
+                    }
+                }
+                
+                // 4. Default: any type match gets a base score
+                if ($score === 0) {
+                    $score = 10;
+                }
+                
+                // Keep the best match
+                if ($score > $bestScore) {
+                    $bestScore = $score;
+                    $matchedProperty = $prop;
+                    $matchedValue = $value;
+                }
+            }
+
+            // Collect data for all properties
+            $propertyData = [];
+            
+            foreach ($properties as $prop) {
+                $propName = $prop->getName();
+                $propValue = null;
+                
+                // If this is the matched property, use the provided value
+                if ($matchedProperty === $prop) {
+                    $propValue = $matchedValue;
+                } else {
+                    // Try to find the property value in parent data using various strategies
+                    // Exclude the matched value to avoid assigning it to multiple properties
+                    $propValue = self::findPropertyValue($prop, $parentData, $propertyName, $matchedValue);
+                }
+                
+                if ($propValue !== null) {
+                    $propertyData[$propName] = $propValue;
+                }
+            }
+
+            // Check if we have enough data to construct the object
+            // At minimum, we need the matched property value, or all non-nullable properties
+            $hasRequiredData = false;
+            
+            if ($matchedProperty !== null) {
+                // We have at least one matching property
+                $hasRequiredData = true;
+            } else {
+                // Check if we have all non-nullable properties
+                $allRequiredFound = true;
+                foreach ($properties as $prop) {
+                    $propType = $prop->getType();
+                    if ($propType instanceof \ReflectionNamedType && !$propType->allowsNull() && !$propType->isBuiltin()) {
+                        if (!isset($propertyData[$prop->getName()])) {
+                            $allRequiredFound = false;
+                            break;
+                        }
+                    }
+                }
+                $hasRequiredData = $allRequiredFound && !empty($propertyData);
+            }
+
+            if (!$hasRequiredData || empty($propertyData)) {
+                return null;
+            }
+
+            // Set all found properties on the instance
+            foreach ($propertyData as $name => $val) {
+                $prop = $reflection->getProperty($name);
+                $prop->setAccessible(true);
+                
+                // Handle nested objects recursively
+                $propType = $prop->getType();
+                if ($propType instanceof \ReflectionNamedType && !$propType->isBuiltin() && is_array($val)) {
+                    $val = self::hydrate($propType->getName(), $val); // @phpstan-ignore-line
+                }
+                
+                $prop->setValue($instance, $val);
+            }
+
+            return $instance;
+        } catch (\ReflectionException $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Check if a value matches a property type
+     */
+    private static function valueMatchesType(mixed $value, ?\ReflectionType $type): bool
+    {
+        if ($type === null) {
+            return false;
+        }
+
+        if ($type instanceof \ReflectionNamedType) {
+            $typeName = $type->getName();
+            
+            // Built-in type matching
+            return match ($typeName) {
+                'string' => is_string($value),
+                'int', 'integer' => is_int($value) || (is_string($value) && ctype_digit($value)),
+                'float', 'double' => is_float($value) || is_numeric($value),
+                'bool', 'boolean' => is_bool($value),
+                default => false, // For class types, we'll handle separately
+            };
+        }
+
+        return false;
+    }
+
+    /**
+     * Try to find a property value in the parent data using various search strategies
+     * 
+     * @param \ReflectionProperty $property The property to find data for
+     * @param array<string, mixed> $parentData The parent data context
+     * @param string $contextPropertyName The name of the property that triggered this conversion
+     * @param mixed $excludeValue Optional value to exclude (e.g., the value already matched to another property)
+     * @return mixed The found value or null
+     */
+    private static function findPropertyValue(\ReflectionProperty $property, array $parentData, string $contextPropertyName, mixed $excludeValue = null): mixed
+    {
+        $propName = $property->getName();
+        $propType = $property->getType();
+        
+        // Strategy 1: Exact match in parent data
+        if (isset($parentData[$propName])) {
+            $value = $parentData[$propName];
+            // Don't return the excluded value (the one already matched to another property)
+            if ($value !== $excludeValue && self::valueMatchesType($value, $propType)) {
+                return $value;
+            }
+        }
+
+        // Strategy 2: Snake case version
+        $snakeName = self::camelToSnake($propName);
+        if ($snakeName !== $propName && isset($parentData[$snakeName])) {
+            $value = $parentData[$snakeName];
+            if ($value !== $excludeValue && self::valueMatchesType($value, $propType)) {
+                return $value;
+            }
+        }
+
+        // Strategy 3: Prefixed with context property name (e.g., "amount_currency" when converting "amount")
+        $prefixedName = $contextPropertyName . '_' . $propName;
+        if (isset($parentData[$prefixedName])) {
+            $value = $parentData[$prefixedName];
+            if ($value !== $excludeValue && self::valueMatchesType($value, $propType)) {
+                return $value;
+            }
+        }
+
+        // Strategy 4: Snake case prefixed version
+        $snakePrefixedName = self::camelToSnake($contextPropertyName) . '_' . $snakeName;
+        if ($snakePrefixedName !== $prefixedName && isset($parentData[$snakePrefixedName])) {
+            $value = $parentData[$snakePrefixedName];
+            if ($value !== $excludeValue && self::valueMatchesType($value, $propType)) {
+                return $value;
+            }
+        }
+
+        // Strategy 5: Search in nested structures
+        $found = self::findInNestedStructures($parentData, $propName);
+        if ($found !== null && $found !== $excludeValue && self::valueMatchesType($found, $propType)) {
+            return $found;
+        }
+
+        // Strategy 6: Try snake case in nested structures
+        if ($snakeName !== $propName) {
+            $found = self::findInNestedStructures($parentData, $snakeName);
+            if ($found !== null && $found !== $excludeValue && self::valueMatchesType($found, $propType)) {
+                return $found;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -645,16 +965,44 @@ final class Schema
                 if (array_key_exists($snakeName, $data)) {
                     $value = $data[$snakeName];
                     $found = true;
+                } else {
+                    // Try word order swap for two-word snake_case fields (e.g., bic_swift -> swift_bic)
+                    $parts = explode('_', $snakeName);
+                    if (count($parts) === 2) {
+                        $swapped = $parts[1] . '_' . $parts[0];
+                        if (array_key_exists($swapped, $data)) {
+                            $value = $data[$swapped];
+                            $found = true;
+                        }
+                    }
                 }
             }
 
             if ($found && $value !== null) {
                 // Handle nested objects
                 $type = $property->getType();
-                if ($type instanceof ReflectionNamedType && ! $type->isBuiltin() && is_array($value)) {
+                if ($type instanceof ReflectionNamedType && ! $type->isBuiltin()) {
                     /** @var class-string $className */
                     $className = $type->getName();
-                    $value = self::hydrate($className, $value);
+                    
+                    if (is_array($value)) {
+                        // Standard case: value is an array, hydrate it
+                        $value = self::hydrate($className, $value);
+                    } else {
+                        // Value is not an array but property expects a class
+                        // Try to convert it (e.g., string/number to Money object)
+                        $converted = self::tryConvertToClass($className, $value, $data, $property->getName(), $type->allowsNull());
+                        if ($converted !== null) {
+                            $value = $converted;
+                        } elseif (!$type->allowsNull()) {
+                            // Can't convert and property is not nullable - skip setting it
+                            // This will preserve the original behavior for non-nullable properties
+                            continue;
+                        } else {
+                            // Can't convert but property is nullable - set to null
+                            $value = null;
+                        }
+                    }
                 }
 
                 // Handle arrays of objects

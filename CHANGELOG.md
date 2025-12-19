@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2025-12-16
+
+### Added
+- **HTTP Request/Response Debugging**
+  - New `DebugHttpClient` class that wraps HTTP clients to log all requests and responses
+  - `withDebugging()` method on all providers to enable request/response logging
+  - `withoutDebugging()` method to disable debugging
+  - Automatic base64 truncation in logs for readability (images, files, etc.)
+  - Custom logger callback support for integration with existing logging systems
+  - Logs all HTTP methods: POST, MULTIPART, STREAM, and async operations
+  - Configurable base64 display (truncated by default, can show full content)
+  - Debugging can be enabled via config option `debug => true` or programmatically via `withDebugging()`
+
+### Changed
+- Enhanced structured data example with improved documentation and schema refinements
+- Updated example file structure (document-road-fine.pdf split into multiple test files)
+
+### Fixed
+- Fixed PHPStan type resolution error in `Schema::hydrate()` recursive calls
+
 ## [1.4.0] - 2025-12-16
 
 ### Added
